@@ -1,0 +1,3571 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*	File		: X_SER_WEB_SERVER.LIB
+*	Description	: This file contains the web page initialization, variables and
+*				  functions.
+*	Project		: Colby Instruments Programmable Delay Line X SERIES
+*	Date		: MAY 17, 2021
+*				: Copyright(c) 2021 Colby Instruments, Bellevue, WA
+*   NOTES:      : WEB_INTERFACE.LIB references web files (HTML, gifs) which are loaded to RAM
+*
+*
+END DESCRIPTION ***************************************************************/
+
+// 02.08.07 added SYSTEM_OutputPrompt(); bug fix
+// 05.08.07	cmdRST(1) for full hardware reset
+// 05.14.07	add #define DEBUG_WEB to enable/supress printf statements
+// 04.14.08 added LXI Indentification XML page
+// 11.02.10 rename from EXECUTE_COMMAND TO ExecuteCommand
+// 08.16.17	remove ,0 from if (SYSTEM_DeviceSetDelay(delay_setting,0) == TRUE)
+// 09.07.17	replace hwRELAY_XP with hwRELAY
+
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+
+// 01.31.21	remove any GPIB hardware in the code since PDM-100A does not include anymore
+// 01.31.21	Fix BeginHeader to include ALL methods as defined in this library
+// 02.01.21	update LIB to work with PDM-100A host as web server
+
+// 02.07.21	should name this file WEB_INT_HW1VER2.LIB to reflect that this library is specific to this HW board
+// 02.09.21 change location of WEB-FILES as needed to different or new folder name
+
+// BUILD 2106 PRODUCTION LIB ***************************************************
+// BUILD 2106 PRODUCTION LIB ***************************************************
+// BUILD 2106 PRODUCTION LIB ***************************************************
+
+// FILE RENAMED FOR HW3VER1
+// replace strcpy with _f_strcpy
+
+// 05.17.21 XT SYSTEM BUILD - WEB_INT_HW3VER1_B2106_HW3RD01.LIB TO X_SER_WEB_SERVER_B2109.LIB
+// 05.17.21 XT SYSTEM BUILD - WEB_INT_HW3VER1_B2106_HW3RD01.LIB TO X_SER_WEB_SERVER_B2109.LIB
+// 05.17.21 XT SYSTEM BUILD - WEB_INT_HW3VER1_B2106_HW3RD01.LIB TO X_SER_WEB_SERVER_B2109.LIB
+// 07.20.21 bug fix inc_down (#ifdef defined incorrectly)
+// 07.20.21 moved #define DEBUG_WEB to main .c program file to enable switch in WEB_SERVER library
+// 07.25.21 handle XT-100 HW_RELAYS.NUM_OF_SECTIONS == 0 // 07.25.21 IF NO RELAYS INSTALLED
+// 07.25.21 // CANT SPECIFY REL # ABOVE THE NUMBER OF INSTALLED RELAYS
+// 07.26.21 add Exercise Relays for XR-100
+// 08.02.21 integrate code from web_server_add_fw_upload.lib
+// 08.06.21 CANNOT DO FW UPDATES FOR DEVICE_XT200 - SERIAL B NO RECEIVE *OPC COMPLETE BIT FROM SEC
+
+// 07.26.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 08.17.21 UPDATES TO HWIO_REL APIS, ROUND DOWN BUG AT LAST SECTION (SECTION NOW TURNS OFF FOR TROBONE TO DO REMAINDER)
+
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+
+// 10.05.21 added handle #ifdef DEVICE_XT100_312P
+// 10.06.21 RD081621 BUILD
+// 10.18.21 START BUILD2112
+
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+
+// 11.11.21 BUILD2112_RD102121_RD111121
+//
+// 11.17.21 get_maxDelayRange,get_stepSize,get_delayCH1,get_delayCH2,
+// 11.17.21 get_delayCH1_percentage,get_delayCH2_percentage :
+// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P IN INFO and CONTROL PAGES
+
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+
+// 01.27.22 IF DEVICE_XT200, DO NOT SAVE TO FLASH ELSE LOSE CONNECTION TO SEC TROMBONE ON CALL TO SYSTEM_SaveNVParametersXT();
+// 01.27.22 USING SAVE BUTTON STORES VALUES TO FLASH.  MUST POWER CYCLE XT-200 UNIT FOR SETTINGS TO TAKE EFFECT ELSE SEC TROMBONE NO CONNECTION.
+// 02.02.22 SYSTEM_SaveNVParametersXT: PRESERVES SERIAL PORT B (CLOSE, WRITE USER BLOCK, OPEN) VER 1.14
+// 02.10.22 // 02.10.22 CHANGE TO 6.2f FROM 5.1f FOR DOUBLE DIGIT PRECISION FOR XT_200-312P MODEL
+// 02.10.22 // 02.10.22 DOUBLE THE AMOUNT FOR 312.5 PS TROMBONE (SINCE RUNNING IN PARALLEL MODE) FOR PERCENTAGE DISPLAY
+// 02.11.22 // VERSION 1.14 UPDATE
+// 02.11.22 // remove for testing upload and install firmware
+
+// 02.15.22 form_commands: HANDLE DEVICE_XT200_312P SUPPORT
+// 02.16.22 VERSION 1.15
+// 05.09.22 added XS-100
+// 08.11.22 NOW USES WEBSERVER UPDATED FOR B2206BETA
+// 08.23.22 COMPARED/MERGED TO B2203 AND TIMING_TEST VERSIONS AND SOURCE CODE VER 1.17
+// 08.23.22 get_StepSize: add support for DEVICE_XS100_005N AND DEVICE_XS100_010N
+
+/*** BeginHeader */
+#ifndef X_SER_WEB_SERVER_LIB
+#define X_SER_WEB_SERVER_LIB
+
+#define BU_TEMP_USE_SFLASH // use serial data flash (without FAT)
+
+#define STDIO_DEBUG_SERIAL SADR
+#define STDIO_DEBUG_BAUD 115200
+#define STDIO_DEBUG_ADDCR
+
+#define USE_HTTP_UPLOAD // Required for this demo, to include upload code.
+
+#define DISABLE_DNS // No name lookups required
+
+// Define this because we are using a static rule table.
+#define SSPEC_FLASHRULES
+
+// 08.0521 turn this off ...
+// Make use of RabbitWeb's scripting commands in HTML files
+#define USE_RABBITWEB 1
+
+// Only one server is really needed for the HTTP server as long as
+// tcp_reserveport() is called on port 80.
+#define HTTP_MAXSERVERS 1
+
+// HTTP upload works better with a large buffer.  HTTP.LIB will xalloc
+// HTTP_SOCK_BUF_SIZE bytes of xmem for each HTTP server socket
+#define HTTP_SOCK_BUF_SIZE (12 * MAX_MTU)
+
+// use DIGEST authentication (more secure than BASIC authentication)
+#define USE_HTTP_DIGEST_AUTHENTICATION 1
+
+#memmap xmem
+
+#use "dcrtcp.lib"
+#use "http.lib"
+
+// 08.06.21 CANNOT DO FW UPDATES FOR DEVICE_XT200
+#ifndef DEVICE_XT200
+#use "board_update.lib"
+#endif
+
+// add for testing 02.11.22
+#ifdef DEVICE_XT200
+#use "board_update.lib"
+#endif
+
+// function prototype for cgi function to handle file upload
+int firmware_upload(HttpState *s);
+
+//#ximport "pages/upload.zhtml"    index_zhtml
+
+// Define a group bit for updating resources...
+#define ADMIN_GROUP 0x0002
+
+/*** EndHeader */
+
+/*** BeginHeader Web_Init,
+get_mac,
+get_port,
+get_model,
+get_manufacturer,
+get_serialNum,
+get_description,
+get_mfDescription,
+get_homepage,
+get_swVersion,
+get_maxDelayRange,
+get_stepSize,
+get_relays,
+get_message,
+get_configMsg,
+get_password,
+get_ip,
+get_netmask,
+get_gateway,
+get_dhcpEnabled,
+get_autoIPEnabled,
+get_dhcpOn,
+get_dhcpOff,
+get_ipEntryEnabled,
+//get_identifyOn,
+//get_identifyOff,
+get_default_desc,
+get_serialOn,
+get_mt100aOn,
+get_Overshoot,
+get_CalTable,
+get_delayCH1,
+get_delayCH1_percentage,
+get_delayCH2_percentage,
+get_StepCH1_Check,
+get_StepCH2_Check,
+get_StepCH3_Check,
+get_ModeDelChannel1,
+get_ModeDelChannel2,
+get_ModeDelChannel3,
+get_numChannels,
+get_increment,
+get_QueryResults
+*/
+
+#ifndef DEBUG_WEB
+#nodebug
+#endif
+
+// 08.02.21 redundant ... not needed already defined
+//#define SSPEC_MAXSPEC 50
+//#define HTTP_MAXBUFFER 512
+//#use "http.lib"
+
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/home.shtml" index_html // import main page, assign reference
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/header.shtml" header_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/info.shtml" info_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/upload.zhtml" upload_zhtml
+
+#if defined(DEVICE_XR100)
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXR100.shtml" configure_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXR100.shtml" control_shtml
+#endif
+#if defined(DEVICE_XS100)
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXS100.shtml" configure_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXS100.shtml" control_shtml
+#endif
+#ifdef DEVICE_XT100
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXT100.shtml" control_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXT100.shtml" configure_shtml
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXT100.shtml" control_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXT100.shtml" configure_shtml
+#endif
+#ifdef DEVICE_XT200
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXT200.shtml" control_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXT200.shtml" configure_shtml
+#endif
+#ifdef DEVICE_XT300
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/controlXT300.shtml" control_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/configureXT300.shtml" configure_shtml
+#endif
+
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/apply.shtml" apply_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/contactUs.shtml" contactUs_shtml
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/FRONT-XT-200.gif" front_xt_200_gif
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/title2.gif" title2_gif
+#ximport "X-SERIES/LIB/BUILD_2206BETA_FOR_HW3/WEB_SERVER/styles.css" styles_css
+
+//define handling of extensions
+SSPEC_MIMETABLE_START
+SSPEC_MIME_FUNC(".shtml", "text/html", shtml_handler),
+    SSPEC_MIME_FUNC("tion", "text/xml", shtml_handler), //This is for the identification page
+    SSPEC_MIME(".html", "text/html"),
+    SSPEC_MIME(".xml", "text/xml"),
+    SSPEC_MIME(".xsd", "text/xml"),
+    SSPEC_MIME(".gif", "image/gif"),
+    SSPEC_MIME(".cgi", ""),
+    SSPEC_MIME(".css", "text/css")
+SSPEC_MIMETABLE_END
+
+// define the prompt sent to users when asked for a username and password
+#define REALM "Firmware Upload"
+
+    // This is the access permissions "rule" table.  All pages require a password.
+    SSPEC_RULETABLE_START
+    // Create a rule that only users in ADMIN_GROUP (0x0002) can access pages
+    // starting with "/fw/".
+    // REALM ("Firmware Upload") is used as the resource realm, which
+    // your browser will use to prompt you for a userid and password.
+    // Only users in group ADMIN_GROUP can read and write these locations.
+    // Only the HTTP server can access this file, and digest (i.e. challenge/
+    // response) user/password authentication is specified.
+    SSPEC_MM_RULE("/fw/", REALM, ADMIN_GROUP, ADMIN_GROUP,
+                  SERVER_HTTP, SERVER_AUTH_DIGEST, NULL)
+    SSPEC_RULETABLE_END
+
+// define structure to hold form user post data
+#define MAX_FORMSIZE 100
+    typedef struct
+{
+    char *name;
+    char value[MAX_FORMSIZE];
+} FORMType;
+
+// declare all user forms
+FORMType FORM_delay[2];
+FORMType FORM_increment[5];
+FORMType FORM_address[14];
+FORMType FORM_relay[2];
+FORMType FORM_relc[2];
+FORMType FORM_mode[1];
+FORMType FORM_overshoot[2];
+FORMType FORM_ctstore[1];
+FORMType FORM_commands[1];
+FORMType FORM_queries[1];
+FORMType FORM_sethost[2];
+
+// declare functions for reporting parameters
+int get_mac(HttpState *state);
+int get_port(HttpState *state);
+int get_model(HttpState *state);
+int get_manufacturer(HttpState *state);
+int get_serialNum(HttpState *state);
+int get_description(HttpState *state);
+int get_mfDescription(HttpState *state);
+int get_homepage(HttpState *state);
+int get_swVersion(HttpState *state);
+int get_maxDelayRange(HttpState *state);
+int get_stepSize(HttpState *state);
+int get_relays(HttpState *state);
+int get_num_rel_sections(HttpState *state);
+int get_message(HttpState *state); // DISPLAY RESULTS AND MESSAGES
+int get_configMsg(HttpState *state);
+int get_password(HttpState *state);
+int get_ip(HttpState *state);
+int get_hostname(HttpState *state);
+int get_netmask(HttpState *state);
+int get_gateway(HttpState *state);
+int get_dhcpEnabled(HttpState *state);
+int get_autoIPEnabled(HttpState *state);
+int get_dhcpOn(HttpState *state);
+int get_dhcpOff(HttpState *state);
+int get_ipEntryEnabled(HttpState *state);
+//int get_identifyOn(HttpState* state);
+//int get_identifyOff(HttpState* state);
+int get_default_desc(HttpState *state);
+int get_serialOn(HttpState *state);
+int get_mt100aOn(HttpState *state);
+int get_Overshoot(HttpState *state);
+int get_CalTable(HttpState *state);
+int get_delayCH1(HttpState *state);
+int get_delayCH2(HttpState *state);
+int get_delayCH1(HttpState *state);
+int get_delayCH1_percentage(HttpState *state);
+int get_delayCH2_percentage(HttpState *state);
+int get_StepCH1_Check(HttpState *state);
+int get_StepCH2_Check(HttpState *state);
+int get_StepCH3_Check(HttpState *state);
+int get_ModeDelChannel1(HttpState *state);
+int get_ModeDelChannel2(HttpState *state);
+int get_ModeDelChannel3(HttpState *state);
+int get_numChannels(HttpState *state);
+int get_increment(HttpState *state);
+int get_QueryResults(HttpState *state);
+
+// declare functions that process user input
+int inc_up(HttpState *state);   // increment the delay in each or both channels
+int inc_down(HttpState *state); // decrement the delay in each or both channels
+int form_delay(HttpState *state);
+int form_increment(HttpState *state);
+int form_address(HttpState *state);
+int form_relay(HttpState *state);
+int form_relc(HttpState *state);
+int form_mode(HttpState *state);
+int form_overshoot(HttpState *state);
+int form_ctstore(HttpState *state);
+int form_commands(HttpState *state);
+int form_queries(HttpState *state);
+int form_sethost(HttpState *state);
+int reset_button(HttpState *state);
+
+float inc;      // declare increment setting
+float prev_inc; // declare previous increment setting
+int StepCH1_Checked;
+int StepCH2_Checked;
+int StepCH3_Checked;
+
+char state_http_ERROR;        // http error flag
+char error_report[50];        // current http error report buffer
+char error_report_config[50]; // current http error report buffer
+
+char WEB_QueryResults[128];
+
+// password protection global variables
+static int user1;
+static int page1;
+static int page2;
+
+// assign reference targets
+
+SSPEC_RESOURCETABLE_START
+SSPEC_RESOURCE_XMEMFILE("/", index_html),
+    SSPEC_RESOURCE_XMEMFILE("/index.html", index_html),
+    SSPEC_RESOURCE_XMEMFILE("/header.shtml", header_shtml),
+    SSPEC_RESOURCE_XMEMFILE("/info.shtml", info_shtml),
+    SSPEC_RESOURCE_XMEMFILE("/apply.shtml", apply_shtml),
+    SSPEC_RESOURCE_XMEMFILE("/styles.css", styles_css),
+    SSPEC_RESOURCE_XMEMFILE("/upload.zhtml", upload_zhtml),
+
+    //These pages are password protected, so we add them dynamically in the init function
+    //SSPEC_RESOURCE_XMEMFILE("/configure.shtml", configure_shtml),
+    //SSPEC_RESOURCE_XMEMFILE("/instrument.shtml", instrument_shtml),
+
+    SSPEC_RESOURCE_XMEMFILE("/contactUs.shtml", contactUs_shtml),
+    SSPEC_RESOURCE_XMEMFILE("/title2.gif", title2_gif),
+    SSPEC_RESOURCE_XMEMFILE("/FRONT-XT-200.gif", front_xt_200_gif), //
+    SSPEC_RESOURCE_FUNCTION("message", get_message),
+    SSPEC_RESOURCE_FUNCTION("configMsg", get_configMsg),
+    SSPEC_RESOURCE_FUNCTION("password", get_password),
+    SSPEC_RESOURCE_FUNCTION("mac", get_mac),
+    SSPEC_RESOURCE_FUNCTION("port", get_port),
+    SSPEC_RESOURCE_FUNCTION("serialNum", get_serialNum),
+    SSPEC_RESOURCE_FUNCTION("manufacturer", get_manufacturer),
+    SSPEC_RESOURCE_FUNCTION("model", get_model),
+    SSPEC_RESOURCE_FUNCTION("description", get_description),
+    SSPEC_RESOURCE_FUNCTION("mfDescription", get_mfDescription),
+    SSPEC_RESOURCE_FUNCTION("homepage", get_homepage),
+    SSPEC_RESOURCE_FUNCTION("swVersion", get_swVersion),
+    SSPEC_RESOURCE_FUNCTION("maxDelayRange", get_maxDelayRange),
+    SSPEC_RESOURCE_FUNCTION("stepSize", get_stepSize),
+    SSPEC_RESOURCE_FUNCTION("relays", get_relays),
+    SSPEC_RESOURCE_FUNCTION("num_rel_sections", get_num_rel_sections),
+    SSPEC_RESOURCE_FUNCTION("ip", get_ip),
+    SSPEC_RESOURCE_FUNCTION("hostname", get_hostname),
+    SSPEC_RESOURCE_FUNCTION("netmask", get_netmask),
+    SSPEC_RESOURCE_FUNCTION("gateway", get_gateway),
+    SSPEC_RESOURCE_FUNCTION("dhcpOff", get_dhcpOff),
+    SSPEC_RESOURCE_FUNCTION("dhcpOn", get_dhcpOn),
+    //SSPEC_RESOURCE_FUNCTION("identifyOn", get_identifyOn),
+    //SSPEC_RESOURCE_FUNCTION("identifyOff", get_identifyOff),
+    SSPEC_RESOURCE_FUNCTION("default_desc", get_default_desc),
+    SSPEC_RESOURCE_FUNCTION("dhcpEnabled", get_dhcpEnabled),
+    SSPEC_RESOURCE_FUNCTION("autoIPEnabled", get_autoIPEnabled),
+    SSPEC_RESOURCE_FUNCTION("ipEntryEnabled", get_ipEntryEnabled),
+    SSPEC_RESOURCE_FUNCTION("delayCH1", get_delayCH1),
+    SSPEC_RESOURCE_FUNCTION("delayCH2", get_delayCH2),
+    SSPEC_RESOURCE_FUNCTION("delayCH1_percentage", get_delayCH1_percentage),
+    SSPEC_RESOURCE_FUNCTION("delayCH2_percentage", get_delayCH2_percentage),
+    SSPEC_RESOURCE_FUNCTION("StepCH1_Check", get_StepCH1_Check),
+    SSPEC_RESOURCE_FUNCTION("StepCH2_Check", get_StepCH2_Check),
+    SSPEC_RESOURCE_FUNCTION("StepCH3_Check", get_StepCH3_Check),
+    SSPEC_RESOURCE_FUNCTION("ModeDelChannel1", get_ModeDelChannel1),
+    SSPEC_RESOURCE_FUNCTION("ModeDelChannel2", get_ModeDelChannel2),
+    SSPEC_RESOURCE_FUNCTION("ModeDelChannel3", get_ModeDelChannel3),
+    SSPEC_RESOURCE_FUNCTION("increment", get_increment),
+    SSPEC_RESOURCE_FUNCTION("query_results", get_QueryResults),
+    SSPEC_RESOURCE_FUNCTION("serialOn", get_serialOn),
+    SSPEC_RESOURCE_FUNCTION("mt100aOn", get_mt100aOn),
+    SSPEC_RESOURCE_FUNCTION("overshoot", get_Overshoot),
+    SSPEC_RESOURCE_FUNCTION("caltable", get_CalTable),
+    SSPEC_RESOURCE_FUNCTION("numChannels", get_numChannels),
+    SSPEC_RESOURCE_FUNCTION("/form_delay.cgi", form_delay),
+    SSPEC_RESOURCE_FUNCTION("/form_increment.cgi", form_increment),
+    SSPEC_RESOURCE_FUNCTION("/form_address.cgi", form_address),
+    SSPEC_RESOURCE_FUNCTION("/form_relay.cgi", form_relay),
+    SSPEC_RESOURCE_FUNCTION("/form_relc.cgi", form_relc),
+    SSPEC_RESOURCE_FUNCTION("/form_mode.cgi", form_mode),
+    SSPEC_RESOURCE_FUNCTION("/form_overshoot.cgi", form_overshoot),
+    SSPEC_RESOURCE_FUNCTION("/form_ctstore.cgi", form_ctstore),
+    SSPEC_RESOURCE_FUNCTION("/form_commands.cgi", form_commands),
+    SSPEC_RESOURCE_FUNCTION("/form_queries.cgi", form_queries),
+    SSPEC_RESOURCE_FUNCTION("/form_sethost.cgi", form_sethost),
+    SSPEC_RESOURCE_FUNCTION("/reset.cgi", reset_button),
+    SSPEC_RESOURCE_P_CGI("/fwupload.cgi", firmware_upload,
+	    REALM, ADMIN_GROUP, 0x0000, SERVER_HTTP, SERVER_AUTH_DIGEST)
+SSPEC_RESOURCETABLE_END
+
+void Web_Init(void);
+/*** EndHeader */
+
+void update_webvars();
+
+// initialize http variables, name form data
+void Web_Init(void)
+{
+    inc = 10; //increments, in ps
+    state_http_ERROR = 0;
+    _f_strcpy(error_report, "");
+    _f_strcpy(error_report_config, "");
+    _f_strcpy(WEB_QueryResults, "");
+
+    // ALL FORM DATA FIELD NAMES MUST MATCH EACH FORM ELEMENT ON HTML FORM PAGE
+
+    FORM_delay[0].name = "user_delay";
+    FORM_delay[1].name = "user_delayCH2";
+
+    FORM_increment[0].name = "user_inc";
+    FORM_increment[1].name = "selectCH1";
+    FORM_increment[2].name = "selectCH2";
+    FORM_increment[3].name = "plus";
+    FORM_increment[4].name = "minus";
+
+    StepCH1_Checked = TRUE;  // default CHECKED
+    StepCH2_Checked = FALSE; // default NOT CHECKED
+    StepCH3_Checked = FALSE; // default NOT CHECKED
+
+    FORM_address[0].name = "new_ip_addr";
+    FORM_address[1].name = "new_netmask";
+    FORM_address[2].name = "new_gateway";
+    FORM_address[3].name = "";
+    FORM_address[4].name = "new_dhcp";
+    FORM_address[5].name = "new_description"; // description of instrument
+    FORM_address[6].name = "new_hostname";
+    FORM_address[7].name = "new_port";
+    FORM_address[8].name = "configButton"; // "configButton"; //
+    FORM_address[9].name = "new_password"; // "new_password";   // Differentiates between submit and reset button
+    FORM_address[10].name = "";            //
+    FORM_address[11].name = "Overshoot";   //
+    FORM_address[12].name = "CalTable";    //
+    FORM_address[13].name = "mode";        // "mode"
+
+    FORM_relay[0].name = "relayNum";
+    FORM_relay[1].name = "state";
+
+    FORM_relc[0].name = "relayCycles";
+    FORM_relc[1].name = "state";
+
+    FORM_mode[0].name = "mode";
+
+    FORM_commands[0].name = "commands";
+
+    FORM_queries[0].name = "queries";
+
+    FORM_overshoot[0].name = "overshoot";
+    FORM_overshoot[1].name = "CalTable";
+
+    FORM_ctstore[0].name = "ctstore";
+
+    FORM_sethost[0].name = "sethostIn";
+
+    // 08.03 moved ... http_init();
+
+    _f_strcpy(g_NVParameters.nv_password, "password");
+
+    //    user1 = sauth_adduser("admin", g_NVParameters.nv_password, SERVER_HTTP);
+    user1 = sauth_adduser("admin", g_NVParameters.nv_password, SERVER_HTTP);
+
+    // from upload_firmware
+    //printf( "Setting up userids...\n\n");
+    // Create a user ID
+    //uid = sauth_adduser(ADMIN_USER, ADMIN_PASS, SERVER_HTTP);
+    if (user1 < 0)
+    {
+#ifdef DEBUG_WEB
+        printf("Failed to create userid, rc=%d\n", user1);
+#endif
+        exit(user1);
+    }
+
+    // Ensure that that user is a member of ADMIN_GROUP
+    sauth_setusermask(user1, ADMIN_GROUP, NULL);
+
+    // Also need to assign individual write access.
+    sauth_setwriteaccess(user1, SERVER_HTTP);
+
+#ifdef DEBUG_WEB
+    printf("Userid created successfully: use '%s' with password '%s'\n\n",
+           "admin", g_NVParameters.nv_password);
+#endif
+
+    page1 = sspec_addxmemfile("/configure.shtml", configure_shtml, SERVER_HTTP);
+    page2 = sspec_addxmemfile("/control.shtml", control_shtml, SERVER_HTTP);
+
+    page2 = sspec_addxmemfile("/index.html", index_html, SERVER_HTTP);
+    page2 = sspec_addxmemfile("/", index_html, SERVER_HTTP);
+
+#ifdef DEBUG_WEB
+    printf("Initialize RabbitWeb variables...\n\n");
+#endif
+    //update_webvars();
+
+    // moved here 08.03.21
+    http_init();
+
+//05.10.07
+#ifdef DEBUG_WEB
+    printf("password is %s.\n", g_NVParameters.nv_password);
+#endif
+
+    sspec_adduser(page1, user1);
+    sspec_adduser(page2, user1);
+
+    if (strcmp("", g_NVParameters.nv_password) != 0)
+    {
+        //        sspec_setrealm(page1, "XT-100");
+        //        sspec_setrealm(page2, "XT-100");
+
+#ifdef DEVICE_XT100
+        sspec_setrealm(page1, "XT-100");
+        sspec_setrealm(page2, "XT-100");
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+        sspec_setrealm(page1, "XT-100");
+        sspec_setrealm(page2, "XT-100");
+#endif
+#ifdef DEVICE_XT200
+        sspec_setrealm(page1, "XT-200");
+        sspec_setrealm(page2, "XT-200");
+#endif
+#ifdef DEVICE_XR100
+        sspec_setrealm(page1, "XR-100");
+        sspec_setrealm(page2, "XR-100");
+#endif
+#ifdef DEVICE_XT300
+        sspec_setrealm(page1, "XT-300");
+        sspec_setrealm(page2, "XT-300");
+#endif
+#ifdef DEVICE_XS100
+        sspec_setrealm(page1, "XS-100");
+        sspec_setrealm(page2, "XS-100");
+#endif
+    }
+    else
+    {
+        sspec_setrealm(page1, "");
+        sspec_setrealm(page2, "");
+    }
+
+    tcp_reserveport(80);
+}
+
+// get MAC address
+int get_mac(HttpState *state)
+{
+    char buffer[6];
+    int i;
+
+    word iface;
+    for (iface = 0; iface < IF_MAX; ++iface)
+    {
+        if (is_valid_iface(iface))
+        {
+#ifdef DEBUG_WEB // 05.14.07
+            printf("Interface %u is valid.\n");
+#endif
+
+            if (!ifconfig(iface, IFG_HWA, buffer, IFS_END))
+            {
+                sprintf(state->buffer, "%02X:%02X:%02X:%02X:%02X:%02X",
+                        buffer[0], buffer[1], buffer[2],
+                        buffer[3], buffer[4], buffer[5]);
+                state->headerlen = strlen(state->buffer);
+                state->headeroff = 0;
+                return 1;
+            }
+            else //internal error report
+            {
+                state_http_ERROR = TRUE;
+                _f_strcpy(error_report, "No hardware address for this interface.");
+#ifdef DEBUG_WEB // 05.14.07
+                printf("  No hardware address for this interface.\n");
+#endif
+            }
+        }
+    }
+    return 1;
+}
+
+// get port
+int get_port(HttpState *state)
+{
+    char str[10];
+    int input_port;
+
+    input_port = g_NVParameters.nv_port;
+#ifdef DEBUG_WEB // 05.14.07
+    printf("port = %d\n", input_port);
+#endif
+    sprintf(str, "%d", input_port);
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get serial number
+int get_serialNum(HttpState *state)
+{
+    _f_strcpy(state->buffer, deviceSN);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get manufacturer
+int get_manufacturer(HttpState *state)
+{
+    _f_strcpy(state->buffer, deviceMANUFACTURER);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get model
+int get_model(HttpState *state)
+{
+    _f_strcpy(state->buffer, deviceMODEL);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get manufacturer's description
+int get_mfDescription(HttpState *state)
+{
+    _f_strcpy(state->buffer, deviceMANUFACTURER); // was deviceMFDESCRIPTION 02.06.21 RD01
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get homepage
+int get_homepage(HttpState *state)
+{
+    _f_strcpy(state->buffer, deviceHOMEPAGE);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get description
+int get_description(HttpState *state)
+{
+    _f_strcpy(state->buffer, g_NVParameters.nv_description);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get software version
+int get_swVersion(HttpState *state)
+{
+    _f_strcpy(state->buffer, swVERSION);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get max delay range
+int get_maxDelayRange(HttpState *state)
+{
+    char str[20];
+#ifdef DEBUG_WEB // 05.14.07
+    printf("delay = %8.2f\n", PARAMETERS.deviceMAX_DELAY_PS);
+#endif
+
+#ifdef DEVICE_XT100
+    sprintf(str, "%8.2f ps", PARAMETERS.deviceMAX_DELAY_PS);
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    sprintf(str, "%8.2f ps", PARAMETERS.deviceMAX_DELAY_PS);
+#endif
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+	#ifdef DEVICE_XT200_312P
+    	sprintf(str, "%8.2f ps", (PARAMETERS.deviceMAX_DELAY_PS / 2));
+    #else
+    	sprintf(str, "%8.2f ps", PARAMETERS.deviceMAX_DELAY_PS);
+    #endif
+#endif
+
+#ifdef DEVICE_XT300
+    sprintf(str, "%8.2f ps", PARAMETERS.deviceMAX_DELAY_PS);
+#endif
+#ifdef DEVICE_XR100
+    sprintf(str, "%8.2f ns", PARAMETERS.deviceMAX_DELAY_NS);
+#endif
+#if defined(DEVICE_XS100)
+    sprintf(str, "%8.2f ps", PARAMETERS.deviceMAX_DELAY_PS);
+#endif
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get step size
+int get_stepSize(HttpState *state)
+{
+    char str[20];
+
+#ifdef DEBUG_WEB // 05.14.07
+    printf("stepSize = %5.3f\n", PARAMETERS.deviceSTEP_SIZE_NS);
+#endif
+
+#ifdef DEVICE_XT100
+    sprintf(str, "0.50 ps");
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    sprintf(str, "0.25 ps");
+#endif
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+	#ifdef DEVICE_XT200_312P
+    	sprintf(str, "0.25 ps");
+	#else
+    	sprintf(str, "0.50 ps");
+    #endif
+#endif
+#ifdef DEVICE_XT300
+    sprintf(str, "0.50 ps");
+#endif
+#ifdef DEVICE_XR100
+    sprintf(str, "%6.2f ns", PARAMETERS.deviceSTEP_SIZE_NS); // 02.06.21	RD01
+#endif
+#if defined(DEVICE_XS100_005N)
+    sprintf(str, "1.0 ps");	// 08.23.22
+#endif
+#if defined(DEVICE_XS100_010N)
+    sprintf(str, "5.0 ps");	// 08.23.22
+#endif
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get relays
+int get_relays(HttpState *state)
+{
+
+#ifdef DEBUG_WEB // 05.14.07
+    printf("relays = %d\n", HW_RELAYS.SETTINGS);
+#endif
+    sprintf(state->buffer, "%d%d%d%d--%d%d%d%d--%d%d%d%d--%d%d%d%d",
+            HW_RELAYS.RELAY_ON_OFF[16], HW_RELAYS.RELAY_ON_OFF[15], HW_RELAYS.RELAY_ON_OFF[14], HW_RELAYS.RELAY_ON_OFF[13],
+            HW_RELAYS.RELAY_ON_OFF[12], HW_RELAYS.RELAY_ON_OFF[11], HW_RELAYS.RELAY_ON_OFF[10], HW_RELAYS.RELAY_ON_OFF[9],
+            HW_RELAYS.RELAY_ON_OFF[8], HW_RELAYS.RELAY_ON_OFF[7], HW_RELAYS.RELAY_ON_OFF[6], HW_RELAYS.RELAY_ON_OFF[5],
+            HW_RELAYS.RELAY_ON_OFF[4], HW_RELAYS.RELAY_ON_OFF[3], HW_RELAYS.RELAY_ON_OFF[2], HW_RELAYS.RELAY_ON_OFF[1]);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// get number of relay sections
+int get_num_rel_sections(HttpState *state)
+{
+#ifdef DEBUG_WEB // 05.14.07
+    printf("# of relay sections = %d\n", HW_RELAYS.NUM_OF_SECTIONS);
+#endif
+#ifdef DEVICE_XT100
+    sprintf(state->buffer, "%i", HW_RELAYS.NUM_OF_SECTIONS);
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    _f_strcpy(state->buffer, " 0 ");
+#endif
+#ifdef DEVICE_XT200
+    _f_strcpy(state->buffer, " 0 ");
+#endif
+#ifdef DEVICE_XT300
+    _f_strcpy(state->buffer, " 0 ");
+#endif
+#ifdef DEVICE_XR100
+    sprintf(state->buffer, "%i", HW_RELAYS.NUM_OF_SECTIONS);
+#endif
+#if defined(DEVICE_XS100)
+    sprintf(state->buffer, "%i", HW_RELAYS.NUM_OF_SECTIONS);
+#endif
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends any http error message
+int get_message(HttpState *state)
+{
+    char str[50];
+    if (state_http_ERROR)
+    {
+        _f_strcpy(str, error_report);
+        state_http_ERROR = 0;
+        //_f_strcpy(error_report, "0");
+        //_f_strcpy(str, INSTRUMENT.WEB_MESSAGE_DISPLAY);
+    }
+    else
+    {
+        if (strlen(INSTRUMENT.WEB_MESSAGE_DISPLAY) != 0)
+        {
+            _f_strcpy(str, INSTRUMENT.WEB_MESSAGE_DISPLAY);
+            INSTRUMENT.WEB_MESSAGE_DISPLAY[0] = '\0';
+            //_f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, ""); // clear it out for next time
+        }
+        else
+        {
+            str[0] = '\0';
+        }
+    }
+    // _f_strcpy(str,"Ending message.");
+
+    _f_strcpy(state->buffer, str); //these 3 lines can be in a separate function for simplicity / space
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    // added
+    return 1;
+}
+
+// sends any http error for configuration page
+int get_configMsg(HttpState *state)
+{
+    char str[50];
+    if (state_http_ERROR)
+    {
+        _f_strcpy(str, error_report_config);
+        state_http_ERROR = 0;
+        _f_strcpy(error_report_config, "0");
+    }
+    else
+        str[0] = '\0';
+
+    _f_strcpy(state->buffer, str); //these 3 lines can be in a separate function for simplicity / space
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    // added
+    return 1;
+}
+
+// send current password
+int get_password(HttpState *state)
+{
+    _f_strcpy(state->buffer, g_NVParameters.nv_password);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current IP
+int get_ip(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    addr = ENET_GetIP();
+    inet_ntoa(str, addr);
+
+#ifdef DEBUG_WEB
+    printf("ip= %s\n", str);
+#endif
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current hostname
+int get_hostname(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    gethostname(str, 20);
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current netmask
+int get_netmask(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    addr = ENET_GetNetmask();
+    inet_ntoa(str, addr);
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current gateway
+int get_gateway(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    addr = ENET_GetGateway();
+    inet_ntoa(str, addr);
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+//Sends a True/False string indicating if a DHCP address is being used
+int get_dhcpEnabled(HttpState *state)
+{
+    if (ENET_GetDHCP() || ENET_GetAutoIP())
+    {
+        _f_strcpy(state->buffer, "true");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "false");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+//Sends a True/False string indicating if an AutoIP address is being used
+int get_autoIPEnabled(HttpState *state)
+{
+    if (ENET_GetAutoIP() || ENET_GetDHCP())
+    {
+        _f_strcpy(state->buffer, "true");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "false");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current DHCP status
+int get_dhcpOn(HttpState *state)
+{
+    if (ENET_GetDHCP() || ENET_GetAutoIP())
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current DHCP off status
+int get_dhcpOff(HttpState *state)
+{
+    if (ENET_GetDHCP() || ENET_GetAutoIP())
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends "Disabled" if we're using DHCP
+int get_ipEntryEnabled(HttpState *state)
+{
+    // always enable this field
+    // 07.13.21
+
+    //if (ENET_GetDHCP() || ENET_GetAutoIP())
+    //{
+    //    _f_strcpy(state->buffer, "disabled");
+    //}
+    //else
+    //{
+
+    _f_strcpy(state->buffer, "");
+
+    //}
+
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+#ifdef REMOVE_CODE
+// sends the current identify ON status
+int get_identifyOn(HttpState *state)
+{
+    if (NETSTAT_get_identify())
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends the current identify OFF status
+int get_identifyOff(HttpState *state)
+{
+    if (!NETSTAT_get_identify())
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+#endif
+
+// get default description
+int get_default_desc(HttpState *state)
+{
+#ifdef DEVICE_XT100
+    _f_strcpy(state->buffer, "XT-100 Programmable Delay Line Instrument");
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    _f_strcpy(state->buffer, "XT-100 Programmable Delay Line Instrument");
+#endif
+#ifdef DEVICE_XT200
+    _f_strcpy(state->buffer, "XT-200 Programmable Delay Line Instrument");
+#endif
+#ifdef DEVICE_XT300
+    _f_strcpy(state->buffer, "XT-300 Programmable Delay Line Instrument");
+#endif
+#ifdef DEVICE_XR100
+    _f_strcpy(state->buffer, "XR-100 Programmable Delay Line Instrument");
+#endif
+#if defined(DEVICE_XS100)
+    _f_strcpy(state->buffer, "XS-100 Programmable Delay Line Instrument");
+#endif
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current serial mode status
+int get_serialOn(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (g_NVParameters.nv_terminal_mode == TRUE)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current MT100A mode status
+int get_mt100aOn(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (g_NVParameters.nv_terminal_mode != TRUE)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current Overshoot On status
+int get_Overshoot(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (g_NVParameters.nv_overshoot == TRUE)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// checks to see if current mode del1 channel status
+int get_ModeDelChannel1(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (INSTRUMENT.stateDEL_CHANNEL == CHANNEL_ONE)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// checks to see if current mode del2 channel status
+int get_ModeDelChannel2(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (INSTRUMENT.stateDEL_CHANNEL == CHANNEL_TWO)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+// checks to see if current mode del3 channel status
+int get_ModeDelChannel3(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    // CHANNEL_THREE NEEDS TO BE DEFINED FOR XT-300 MODEL
+    //    if (INSTRUMENT.stateDEL_CHANNEL == CHANNEL_THREE)
+    //        _f_strcpy(str, "CHECKED");
+    //    else
+    //        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current CalTableOn status
+int get_CalTable(HttpState *state)
+{
+    char str[20];
+    long addr;
+
+    if (g_NVParameters.nv_useCTSTORE == TRUE)
+        _f_strcpy(str, "CHECKED");
+    else
+        _f_strcpy(str, "");
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current delay setting
+int get_delayCH1(HttpState *state)
+{
+    // THIS IS DISPLAY IN TOP ROW CHANNEL ONE
+    char str[20];
+    float current_delay;
+
+#ifdef DEVICE_XT100
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)             // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 1.00; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 0.50; // 02.06.21 RD01
+    sprintf(str, "%9.2f", current_delay);
+#endif
+
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)             // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 1.00; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 0.50; // 02.06.21 RD01
+    sprintf(str, "%9.2f", current_delay);
+#endif
+
+#ifdef DEVICE_XR100
+    current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY;
+    sprintf(str, "%9.2f", current_delay);
+#endif
+
+#if defined(DEVICE_XS100)
+    current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY;
+    sprintf(str, "%9.2f", current_delay);
+#endif
+
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+    #ifdef DEVICE_XT200_312P
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 1.0; // 02.06.21 RD01
+	#else
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)                  // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 1.0; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 0.50; // 02.06.21 RD01
+    #endif
+    sprintf(str, "%6.2f", current_delay);  // 02.10.22 change to 6.2f from 5.1f
+#endif
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current delay setting
+// need to update for CHANNEL 2
+int get_delayCH2(HttpState *state)
+{
+    char str[20];
+    float current_delay;
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+    #ifdef DEVICE_XT200_312P
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 1.0; // 02.06.21 RD01
+	#else
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)                  // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 1.0; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 0.50; // 02.06.21 RD01
+    #endif
+
+    sprintf(str, "%6.2f", current_delay);	// 02.10.22 change to 6.2f from 5.1f
+#else
+    sprintf(str, "N/A");
+#endif
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current delay setting
+int get_delayCH1_percentage(HttpState *state)
+{
+    // THIS IS DISPLAY IN TOP ROW CHANNEL ONE
+    char str[20];
+    float current_delay;
+    int _Percentage;
+
+    _Percentage = 0;
+
+#ifdef DEVICE_XT100
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)             // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 1.00; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 0.50; // 02.06.21 RD01
+#endif
+
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)             // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 1.00; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY * 0.50; // 02.06.21 RD01
+#endif
+
+#if (defined(DEVICE_XR100) || defined(DEVICE_XS100))
+    current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY;
+#endif
+
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+	#ifdef DEVICE_XT200_312P
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 1.0; // 02.06.21 RD01
+    #else
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)                  // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 1.0; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F * 0.50; // 02.06.21 RD01
+    #endif
+#endif
+
+	#ifdef DEVICE_XT200_312P
+    _Percentage = (int)(((current_delay * 2) / PARAMETERS.deviceMAX_DELAY_PS) * 100); 	// 02.10.22 DOUBLE THE AMOUNT FOR 312.5 PS TROMBONE
+    #else
+    _Percentage = (int)((current_delay / PARAMETERS.deviceMAX_DELAY_PS) * 100);
+    #endif
+    sprintf(str, "%i", _Percentage);
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+int get_delayCH2_percentage(HttpState *state)
+{
+    char str[20];
+    float current_delay;
+    int _Percentage;
+
+#ifdef DEVICE_XT200
+	// 11.17.21 ADD SUPPORT FOR DEVICE_XT200_312P
+	#ifdef DEVICE_XT200_312P
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 1.0; // 02.06.21 RD01
+    #else
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)                  // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 1.0; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F * 0.50; // 02.06.21 RD01
+    #endif
+
+   	#ifdef DEVICE_XT200_312P
+    _Percentage = (int)(((current_delay * 2) / PARAMETERS.deviceMAX_DELAY_PS) * 100); 	// 02.10.22 DOUBLE THE AMOUNT FOR 312.5 PS TROMBONE
+	#else
+    _Percentage = (int)((current_delay / PARAMETERS.deviceMAX_DELAY_PS) * 100);
+    #endif
+    sprintf(str, "%i", _Percentage);
+#else
+    //sprintf(str,"%9.2f ps",current_delay);
+    sprintf(str, "0");
+#endif
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+int get_delayCH3_percentage(HttpState *state)
+{
+    char str[20];
+    float current_delay;
+    int _Percentage;
+
+#ifdef DEVICE_XT300
+    if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)                    // 02.06.21 RD01
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_THREE_F * 1.0; // 02.06.21 RD01
+    else
+        current_delay = INSTRUMENT_SETTINGS.CURRENT_DELAY_THREE_F * 0.50; // 02.06.21 RD01
+
+    _Percentage = (int)((current_delay / PARAMETERS.deviceMAX_DELAY_PS) * 100);
+    sprintf(str, "%i", _Percentage);
+#else
+    //sprintf(str,"%9.2f ps",current_delay);
+    sprintf(str, "0");
+#endif
+
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// RETURNS PREVIOUS STATE OF CH1 CHECK BOX STATE
+int get_StepCH1_Check(HttpState *state)
+{
+    if (StepCH1_Checked == TRUE)
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// RETURNS PREVIOUS STATE OF CH2 CHECK BOX STATE
+int get_StepCH2_Check(HttpState *state)
+{
+    if (StepCH2_Checked == TRUE)
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// RETURNS PREVIOUS STATE OF CH3 CHECK BOX STATE
+int get_StepCH3_Check(HttpState *state)
+{
+    if (StepCH3_Checked == TRUE)
+    {
+        _f_strcpy(state->buffer, "CHECKED");
+    }
+    else
+    {
+        _f_strcpy(state->buffer, "");
+    }
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// sends current increment setting - this increment is an internal http server
+// setting not linked to main increment
+int get_increment(HttpState *state)
+{
+    char str[20];
+
+    sprintf(str, "%7.2f", inc);		// 02.10.22 change to 7.2f from 7.1f
+    _f_strcpy(state->buffer, str);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+int get_QueryResults(HttpState *state)
+{
+    char str[20];
+
+    _f_strcpy(state->buffer, WEB_QueryResults);
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+// returns the number of channels for device type
+int get_numChannels(HttpState *state)
+{
+
+#if (defined(DEVICE_XR100) || defined(DEVICE_XS100))
+    _f_strcpy(state->buffer, "1");
+#endif
+#ifdef DEVICE_XT100
+    _f_strcpy(state->buffer, "1");
+#endif
+
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    _f_strcpy(state->buffer, "1");
+#endif
+#ifdef DEVICE_XT200
+    _f_strcpy(state->buffer, "2");
+#endif
+#ifdef DEVICE_XT300
+    _f_strcpy(state->buffer, "3");
+#endif
+
+    state->headerlen = strlen(state->buffer);
+    state->headeroff = 0;
+    return 1;
+}
+
+int parse_post(HttpState *state, FORMType *FORM_submit, int form_len)
+{
+    auto int retval;
+    auto int i;
+
+    // state->s is the socket structure, and state->p is pointer
+    // into the HTTP state buffer (initially pointing to the beginning
+    // of the buffer).  Note that state->p was set up in the submit
+    // CGI function.  Also note that we read up to the content_length,
+    // or HTTP_MAXBUFFER, whichever is smaller.  Larger POSTs will be
+    // truncated.
+
+    retval = sock_aread(&state->s, state->p,
+                        (state->content_length < HTTP_MAXBUFFER - 1) ? (int)state->content_length : HTTP_MAXBUFFER - 1);
+
+#ifdef DEBUG_WEB // 05.14.07
+    printf("retval = %d, state->content_length = %d\n", retval, state->content_length);
+#endif
+    if (retval < 0)
+    {
+        // Error--just bail out
+        return 1;
+    }
+
+    // Using the subsubstate to keep track of how much data we have received
+    state->subsubstate += retval;
+#ifdef DEBUG_WEB // 05.14.07
+    printf("state->subsubstate = %d, state->content_length = %d\n", state->subsubstate, state->content_length);
+#endif
+    if (state->subsubstate >= state->content_length)
+    {
+        // NULL-terminate the content buffer
+        state->buffer[(int)state->content_length] = '\0';
+
+        // Scan the received POST information into the FORMSpec structure
+        for (i = 0; i < (form_len / sizeof(FORMType)); i++)
+        {
+            http_scanpost(FORM_submit[i].name, state->buffer, FORM_submit[i].value,
+                          MAX_FORMSIZE);
+        }
+
+        // Finished processing--returning 1 indicates that we are done
+        //*FORM_in = FORM_submit;
+        return 1;
+    }
+    // Processing not finished--return 0 so that we can be called again
+    return 0;
+}
+
+int form_delay(HttpState *state)
+{
+    // THIS FORM WILL CHECK BOTH INPUT FIELDS AND THEN SET THE DELAY
+    // FOR BOTH CHANNELS IF VALID AND DIFFERENT FROM CURRENT DELAY SETTING
+
+    int len;
+    float delay_setting;
+    char units[5];
+
+    FORM_delay[0].value[0] = '\0'; // delay channel 1
+    FORM_delay[1].value[0] = '\0'; // delay channel 2
+
+    state->p = state->buffer;
+    len = sizeof(FORM_delay);
+
+    if (parse_post(state, FORM_delay, len))
+    {
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, ""); // CLEAR OUT THIS MESSAGE
+#ifndef DEVICE_XT200
+        // THIS APPLIES TO DEVICE_XT100 || DEVICE_XR100
+        if (strcmp(FORM_delay[0].value, "") != 0)
+        {
+            // CHANNEL ONE ONLY
+            delay_setting = atof(FORM_delay[0].value); // DELAY CHANNEL 1 VALUE
+            if ((delay_setting >= 0.0) && (delay_setting <= PARAMETERS.deviceMAX_DELAY_PS))
+            {
+                // IF NOT THE SAME AS CURRENT DELAY IN CHANNEL ONE THEN SET THE NEW DELAY
+                if (fabs(delay_setting - INSTRUMENT_SETTINGS.CURRENT_DELAY) > 0.10)
+                {
+                    // USE DEL COMMAND
+                    _f_strcpy(cmdARG1, "DEL");
+                    _f_strcpy(cmdARG2, FORM_delay[0].value);
+                    _f_strcpy(cmdARG3, "PS");
+                    SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                    if (INSTRUMENT.stateERROR == TRUE)
+                    {
+                        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Error.  Cannot set delay.");
+                        state_http_ERROR = 1;
+                    }
+                }
+                else
+                {
+                    // SPECIFIED DELAY IS THE SAME SO DO NOTHING
+                }
+            }
+            else
+            {
+                INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range.");
+                state_http_ERROR = 1;
+            }
+        }
+
+#endif
+
+#ifdef DEVICE_XT200
+        if (strcmp(FORM_delay[0].value, "") != 0)
+        {
+            // Channel 1
+            delay_setting = atof(FORM_delay[0].value); // DELAY CHANNEL 1 VALUE
+
+            // IF NOT THE SAME AS CURRENT DELAY IN CHANNEL ONE THEN SET THE NEW DELAY
+            if (fabs(delay_setting - INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS) > 0.10)
+            {
+                INSTRUMENT.stateDEL_CHANNEL = 1; // THIS IS SET FOR CHANNEL ONE FOR XT-200
+                if (MOTOR_VerifyAndRoundDelay(&delay_setting))
+                {
+                    // check to ensure delay_setting is valid
+                    if ((delay_setting >= 0.0) && (delay_setting <= 625.00))
+                    {
+                        // USE DEL1 COMMAND
+                        _f_strcpy(cmdARG1, "DEL1");
+                        _f_strcpy(cmdARG2, FORM_delay[0].value);
+                        _f_strcpy(cmdARG3, "PS");
+                        SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                        if (INSTRUMENT.stateERROR == TRUE)
+                        {
+                            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range Channel 1.");
+                            state_http_ERROR = 1;
+                        }
+                    }
+                    else
+                    {
+                        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range Channel 1.");
+                        state_http_ERROR = 1;
+                    }
+                }
+                else
+                {
+                    INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                    INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range Channel 1.");
+                    state_http_ERROR = 1;
+                    _f_strcpy(error_report, "Out of range Channel 1.");
+                }
+            }
+            else
+            {
+                // SPECIFIED DELAY IS THE SAME SO DO NOTHING
+            }
+        }
+
+        if (strcmp(FORM_delay[1].value, "") != 0)
+        {
+            // Channel 2
+            delay_setting = atof(FORM_delay[1].value); // DELAY CHANNEL 2 VALUE
+
+            // IF NOT THE SAME AS CURRENT DELAY IN CHANNEL ONE THEN SET THE NEW DELAY
+            if (fabs(delay_setting - INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS) > 0.10)
+            {
+                INSTRUMENT.stateDEL_CHANNEL = 2; // THIS IS SET FOR CHANNEL ONE FOR XT-200
+                if (MOTOR_VerifyAndRoundDelay(&delay_setting))
+                {
+                    // check to ensure delay_setting is valid
+                    if ((delay_setting >= 0.0) && (delay_setting <= 625.00))
+                    {
+                        // ALTERNATE METHOD
+                        // USE DEL1 COMMAND
+                        _f_strcpy(cmdARG1, "DEL2");
+                        _f_strcpy(cmdARG2, FORM_delay[1].value);
+                        _f_strcpy(cmdARG3, "PS");
+                        SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                        if (INSTRUMENT.stateERROR == TRUE)
+                        {
+                            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range Channel 2.");
+                            state_http_ERROR = 1;
+                        }
+                    }
+                    else
+                    {
+                        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Out of range Channel 2.");
+                        state_http_ERROR = 1;
+                    }
+                }
+                else
+                {
+                    state_http_ERROR = 1;
+                    _f_strcpy(error_report, "OUT OF BOUNDS");
+                }
+            }
+            else
+            {
+                // SPECIFIED DELAY IS THE SAME SO DO NOTHING
+            }
+        }
+// DEVICE_XT200
+#endif
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    SYSTEM_OutputPrompt(); // added 02.08.07
+    return 0;
+}
+
+int form_increment(HttpState *state)
+{
+    int len;
+    float increment_setting;
+
+    FORM_increment[0].value[0] = '\0';
+    FORM_increment[1].value[0] = '\0';
+    FORM_increment[2].value[0] = '\0';
+    FORM_increment[3].value[0] = '\0';
+    FORM_increment[4].value[0] = '\0';
+    state->p = state->buffer;
+    len = sizeof(FORM_increment);
+
+    if (parse_post(state, FORM_increment, len))
+    {
+
+        increment_setting = atof(FORM_increment[0].value);
+
+        if (increment_setting != prev_inc)
+        {
+            // store the new values
+            prev_inc = increment_setting;
+            if (increment_setting == 0)
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "INVALID INCREMENT");
+            }
+            else
+                inc = increment_setting;
+        }
+
+#ifndef DEVICE_XT200
+        // THIS IS FOR DEVICE_XT100 AND DEVICE_XR100
+        // SEE IF CHANNEL ONE CHECKED
+        if (strcmp(FORM_increment[1].value, "CH1") == 0)
+        {
+            StepCH1_Checked = TRUE;
+            INSTRUMENT.stateDEL_CHANNEL = CHANNEL_ONE;
+            if (strcmp("   +   ", FORM_increment[3].value) == 0)
+            {
+                inc_up(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH1 incremented ",100);
+            }
+            else if (strcmp("   -   ", FORM_increment[4].value) == 0)
+            {
+                inc_down(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH1 decremented ",100);
+            }
+            else
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "+/- ERROR");
+            }
+        }
+        else
+        {
+            StepCH1_Checked = FALSE;
+        }
+#endif
+
+#ifdef DEVICE_XT200
+
+        // SEE IF CHANNEL ONE CHECKED
+        if (strcmp(FORM_increment[1].value, "CH1") == 0)
+        {
+            StepCH1_Checked = TRUE;
+            INSTRUMENT.stateDEL_CHANNEL = CHANNEL_ONE;
+            if (strcmp("   +   ", FORM_increment[3].value) == 0)
+            {
+                inc_up(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH1 incremented ",100);
+            }
+            else if (strcmp("   -   ", FORM_increment[4].value) == 0)
+            {
+                inc_down(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH1 decremented ",100);
+            }
+            else
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "+/- ERROR");
+            }
+        }
+        else
+        {
+            StepCH1_Checked = FALSE;
+        }
+
+        // SEE IF CHANNEL TWO CHECKED
+        if (strcmp(FORM_increment[2].value, "CH2") == 0)
+        {
+            StepCH2_Checked = TRUE;
+            INSTRUMENT.stateDEL_CHANNEL = CHANNEL_TWO;
+            if (strcmp("   +   ", FORM_increment[3].value) == 0)
+            {
+                inc_up(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH2 incremented ",100);
+            }
+            else if (strcmp("   -   ", FORM_increment[4].value) == 0)
+            {
+                inc_down(state);
+                //_f_strncat(INSTRUMENT.WEB_MESSAGE_DISPLAY,"CH2 decremented ",100);
+            }
+            else
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "+/- ERROR");
+            }
+        }
+        else
+        {
+            StepCH2_Checked = FALSE;
+        }
+
+// FOR DEVICE_XT200
+#endif
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    SYSTEM_OutputPrompt(); // added 02.08.07
+    return 0;
+}
+
+// sends a delay command for a relative +inc delay
+int inc_up(HttpState *state)
+{
+    // INCREMENT THE DELAY IN SPECIFIED CHANNEL AS SET BY INSTRUMENT.stateDEL_CHANNEL
+    // USE THE DEL1 OR THE DEL2 COMMAND TO SET THE NEW DELAY
+    float delay_setting;
+    char _ErrorFromStepCH1;
+
+    _ErrorFromStepCH1 = FALSE;                     // FLAG TO INDICATE IF THERE WAS AN ERROR FROM SETTING STEP IN CH 1
+    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, ""); // CLEAR OUT THIS MESSAGE
+
+    // DETERMINE THE NEW delay_setting DEPENDING ON DEVICE TYPE
+
+#ifndef DEVICE_XT200
+    // FOR DEVICE_XT100 AND DEVICE_XR100
+    delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY + inc);
+#endif
+
+#ifdef DEVICE_XT200
+    switch (INSTRUMENT.stateDEL_CHANNEL)
+    {
+    case CHANNEL_ONE:
+    case CHANNEL_BOTH:
+        delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS + inc);
+        break;
+    case CHANNEL_TWO:
+        delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS + inc);
+        break;
+    }
+#endif
+
+    // SET THE NEW delay_setting DEPENDING ON DEVICE TYPE
+
+#ifndef DEVICE_XT200
+    // FOR DEVICE_XT100 AND DEVICE_XR100
+    if ((delay_setting >= 0.0) && (delay_setting <= PARAMETERS.deviceMAX_DELAY_PS))
+    {
+        // check to ensure delay_setting is valid
+        // USE DEL COMMAND
+        _f_strcpy(cmdARG1, "DEL");
+        sprintf(cmdARG2, "%8.1f", delay_setting);
+        _f_strcpy(cmdARG3, "PS");
+        SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+        if (INSTRUMENT.stateERROR == TRUE)
+        {
+            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+            state_http_ERROR = 1;
+        }
+    }
+    else
+    {
+        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+        state_http_ERROR = 1;
+    }
+// DEVICE_XT100 or DEVICE_XR100
+#endif
+
+#ifdef DEVICE_XT200
+    // INSTRUMENT.stateDEL_CHANNEL is already specified
+    if (MOTOR_VerifyAndRoundDelay(&delay_setting))
+    {
+        if ((delay_setting >= 0.0) && (delay_setting <= 625.00))
+        {
+            // check to ensure delay_setting is valid
+            switch (INSTRUMENT.stateDEL_CHANNEL)
+            {
+            case CHANNEL_ONE:
+            case CHANNEL_BOTH:
+                // USE DEL1 COMMAND
+                _f_strcpy(cmdARG1, "DEL1");
+                sprintf(cmdARG2, "%6.2f", delay_setting);	// 02.10.22 change to 6.2f from 5.1f
+                _f_strcpy(cmdARG3, "PS");
+                SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                    INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1.");
+                    state_http_ERROR = 1;
+                }
+                break;
+            case CHANNEL_TWO:
+                // USE DEL2 COMMAND
+                _f_strcpy(cmdARG1, "DEL2");
+                sprintf(cmdARG2, "%6.2f", delay_setting);	// 02.10.22 change to 6.2f from 5.1f
+                _f_strcpy(cmdARG3, "PS");
+                // CHECK TO SEE IF THERE WAS ALREADY AN ERROR FROM SETTING THE STEP IN CHANNEL 1 IF CHECKED
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    _ErrorFromStepCH1 = TRUE;
+                    INSTRUMENT.stateERROR = FALSE;
+                }
+                SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                    INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                    if (_ErrorFromStepCH1 == TRUE)
+                    {
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1 and 2.");
+                    }
+                    else
+                    {
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 2.");
+                    }
+                }
+                else if (_ErrorFromStepCH1 == TRUE)
+                {
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1.");
+                }
+                break;
+            } // END SWITCH
+        }
+        else
+        {
+            // if stateError is already true from ch1 error the out of range in both channels
+            if (INSTRUMENT.stateERROR == TRUE)
+            {
+                // this was error before in Channel 1
+                _ErrorFromStepCH1 = TRUE;
+            }
+            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+            switch (INSTRUMENT.stateDEL_CHANNEL)
+            {
+            case CHANNEL_ONE:
+            case CHANNEL_BOTH:
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1.");
+                break;
+            case CHANNEL_TWO:
+                if (_ErrorFromStepCH1 == TRUE)
+                {
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1 and Channel 2.");
+                }
+                else
+                {
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 2.");
+                }
+                break;
+            } // end switch
+            state_http_ERROR = 1;
+        }
+    }
+    else //internal error report
+    {
+        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Invalid step value.");
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "Invalid step value.");
+    }
+// DEVICE_XT200
+#endif
+
+    return 0;
+}
+
+// THIS IS A COPY OF INC_UP BUT SIGNS ARE CHANGED
+// sends a delay command for a relative -inc delay
+int inc_down(HttpState *state)
+{
+    // INCREMENT THE DELAY IN SPECIFIED CHANNEL AS SET BY INSTRUMENT.stateDEL_CHANNEL
+    // USE THE DEL1 OR THE DEL2 COMMAND TO SET THE NEW DELAY
+    float delay_setting;
+    char _ErrorFromStepCH1;
+
+    _ErrorFromStepCH1 = FALSE;                     // FLAG TO INDICATE IF THERE WAS AN ERROR FROM SETTING STEP IN CH 1
+    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, ""); // CLEAR OUT THIS MESSAGE
+
+// DETERMINE THE NEW delay_setting :
+#ifdef DEVICE_XT100
+    delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY - inc);
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+    delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY - inc);
+#endif
+
+#ifdef DEVICE_XT200
+    switch (INSTRUMENT.stateDEL_CHANNEL)
+    {
+    case CHANNEL_ONE:
+    case CHANNEL_BOTH:
+        delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS - inc);
+        break;
+    case CHANNEL_TWO:
+        delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS - inc);
+        break;
+    }
+#endif
+
+#if (defined(DEVICE_XR100) || defined(DEVICE_XS100))
+    delay_setting = (INSTRUMENT_SETTINGS.CURRENT_DELAY - inc);
+#endif
+
+    // SET THE NEW delay_setting DEPENDING ON DEVICE TYPE
+
+#ifndef DEVICE_XT200
+    // FOR DEVICE_XT100 AND DEVICE_XR100
+    if ((delay_setting >= 0.0) && (delay_setting <= PARAMETERS.deviceMAX_DELAY_PS))
+    {
+        // check to ensure delay_setting is valid
+        // USE DEL COMMAND
+        _f_strcpy(cmdARG1, "DEL");
+        sprintf(cmdARG2, "%8.1f", delay_setting);
+        _f_strcpy(cmdARG3, "PS");
+        SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+        if (INSTRUMENT.stateERROR == TRUE)
+        {
+            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+            state_http_ERROR = 1;
+        }
+    }
+    else
+    {
+        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+        state_http_ERROR = 1;
+    }
+// DEVICE_XT100 or DEVICE_XR100
+#endif
+
+#ifdef DEVICE_XT200
+    // TBD -- NEEDS TO BE DEBUGGED AND TESTED FOR XT-200
+    // INSTRUMENT.stateDEL_CHANNEL is already specified
+
+    if (MOTOR_VerifyAndRoundDelay(&delay_setting))
+    {
+        if ((delay_setting >= 0.0) && (delay_setting <= 625.00))
+        {
+            // check to ensure delay_setting is valid
+            switch (INSTRUMENT.stateDEL_CHANNEL)
+            {
+            case CHANNEL_ONE:
+            case CHANNEL_BOTH:
+                // USE DEL1 COMMAND
+                _f_strcpy(cmdARG1, "DEL1");
+                sprintf(cmdARG2, "%6.2f", delay_setting);	// 02.10.22 change to 6.2f from 5.1f
+                _f_strcpy(cmdARG3, "PS");
+                SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                    INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1.");
+                    state_http_ERROR = 1;
+                }
+                break;
+            case CHANNEL_TWO:
+                // USE DEL2 COMMAND
+                _f_strcpy(cmdARG1, "DEL2");
+                sprintf(cmdARG2, "%6.2f", delay_setting);	// 02.10.22 change to 6.2f from 5.1f
+                _f_strcpy(cmdARG3, "PS");
+                // CHECK TO SEE IF THERE WAS ALREADY AN ERROR FROM SETTING THE STEP IN CHANNEL 1 IF CHECKED
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    _ErrorFromStepCH1 = TRUE;
+                    INSTRUMENT.stateERROR = FALSE;
+                }
+                SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+                if (INSTRUMENT.stateERROR == TRUE)
+                {
+                    INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+                    INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+                    if (_ErrorFromStepCH1 == TRUE)
+                    {
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1 and 2.");
+                    }
+                    else
+                    {
+                        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 2.");
+                    }
+                }
+                else if (_ErrorFromStepCH1 == TRUE)
+                {
+                    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1.");
+                }
+                break;
+            } // END SWITCH
+        }
+        else
+        {
+            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+            switch (INSTRUMENT.stateDEL_CHANNEL)
+            {
+            case CHANNEL_ONE:
+            case CHANNEL_BOTH:
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 1");
+                break;
+            case CHANNEL_TWO:
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range Channel 2");
+                break;
+            } // end switch
+            state_http_ERROR = 1;
+        }
+    }
+    else //internal error report
+    {
+        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Invalid step value.");
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "Invalid step value.");
+    }
+#endif
+
+#ifdef XR100
+    // TBD -- NEEDS TO BE DEBUGGED AND TESTED FOR XR-100
+    // NOTE: NEED TO CHANGE ENDING RANGE DEPENDING ON XR-100 CONFIGURATION
+    if ((delay_setting >= 0.0) && (delay_setting <= 625.00))
+    {
+        // check to ensure delay_setting is valid
+        // USE DEL COMMAND
+        _f_strcpy(cmdARG1, "DEL");
+        _f_strcpy(cmdARG2, FORM_delay[0].value);
+        _f_strcpy(cmdARG3, "PS");
+        SYSTEM_ExecuteCommand(); // Execute the command in cmdARG1 and cmdARG2
+        if (INSTRUMENT.stateERROR == TRUE)
+        {
+            INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+            state_http_ERROR = 1;
+        }
+    }
+    else
+    {
+        INSTRUMENT.stateERROR = TRUE;               // 02.06.21 RD01
+        INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET; // 02.06.21 RD01
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Step size out of range.");
+        state_http_ERROR = 1;
+    }
+
+//#ifdef OLD_CODE
+//    // NOTE:SYSTEM_DeviceSetDelayNoOVS WHICH IS OK FOR XR-100 ONLY
+//    if (MOTOR_VerifyAndRoundDelay(&delay_setting))
+//    {
+//        if (SYSTEM_DeviceSetDelayNoOVS(delay_setting) == TRUE)
+//        {
+//#ifdef DEVICE_XR100
+//            INSTRUMENT_SETTINGS.CURRENT_DELAY = delay_setting;
+//#endif
+//            INSTRUMENT.stateERROR = FALSE;
+//        }
+//        else
+//        {
+//            INSTRUMENT.stateERROR = TRUE;
+//            INSTRUMENT.stateERROR_CODE = DELAY_NOT_SET;
+//        }
+//    }
+//    else //internal error report
+//    {
+//        state_http_ERROR = TRUE;
+//        _f_strcpy(error_report, "OUT OF BOUNDS");
+//    }
+//#endif
+
+// DEVICE_XR100
+#endif
+
+    return 0;
+}
+
+int form_address(HttpState *state)
+{
+    int len;
+    unsigned long user_ip;
+    int user_dhcp;
+    //    int user_identify;
+    unsigned long user_netmask;
+    unsigned long user_gateway;
+    //    int user_gpib;
+    int user_port;
+
+    char units[5];
+
+    //FORM_address[0].name = "new_ip_addr";
+    //FORM_address[1].name = "new_netmask";
+    //FORM_address[2].name = "new_gateway";
+    //FORM_address[3].name = "";
+    //FORM_address[4].name = "new_dhcp";
+    //FORM_address[5].name = "new_description"; // description of instrument
+    //FORM_address[6].name = "new_hostname";
+    //FORM_address[7].name = "new_port";
+    //FORM_address[9].name = "configButton"; // Differentiates between submit and reset button
+    //FORM_address[10.name = "new_password";
+    //FORM_address[11].name = "new_identify";
+
+    FORM_address[0].value[0] = '\0';  // "new_ip_addr";
+    FORM_address[1].value[0] = '\0';  // "new_netmask"
+    FORM_address[2].value[0] = '\0';  // "new_gateway";
+    FORM_address[3].value[0] = '\0';  // "";
+    FORM_address[4].value[0] = '\0';  // "new_dhcp";
+    FORM_address[5].value[0] = '\0';  // "new_description";
+    FORM_address[6].value[0] = '\0';  // "new_hostname";       //
+    FORM_address[7].value[0] = '\0';  // "new_port";
+    FORM_address[8].value[0] = '\0';  // "configButton"; // "Defaults" or "Save" or "  Reset  "
+    FORM_address[9].value[0] = '\0';  // "new_password";
+    FORM_address[10].value[0] = '\0'; //  new_identify";
+    FORM_address[11].value[0] = '\0'; // "Overshoot";
+    FORM_address[12].value[0] = '\0'; // CalTable";
+    FORM_address[13].value[0] = '\0'; // "mode"
+
+    state->p = state->buffer;
+    len = sizeof(FORM_address);
+
+    if (!parse_post(state, FORM_address, len))
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report_config, "POST PARSING ERROR");
+        cgi_redirectto(state, "/configure.shtml");
+        return 0;
+    }
+
+    // DETERMINE WHICH BUTTON WAS SELECTED
+    if (strcmp(FORM_address[8].value, "  Reset  ") == 0)
+    {
+        // refresh the page
+        cgi_redirectto(state, "/configure.shtml");
+        return 0;
+    }
+    else if (strcmp(FORM_address[8].value, "Defaults") == 0)
+    {
+    }
+    else if (strcmp(FORM_address[8].value, "  Save  ") == 0)
+    {
+
+        // HANDLE THE OVERSHOOT
+        if (strcmp(FORM_address[11].value, "OvershootChecked") == 0)
+        {
+            if (!GLOBAL_SETTINGS.userOVERSHOOT)
+            {
+                GLOBAL_SETTINGS.userOVERSHOOT = TRUE;
+                g_NVParameters.nv_overshoot = TRUE; // UPDATE THE SETTING TO NVRAM
+                SYSTEM_SaveNVParametersXT(); 		// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+        else
+        {
+            if (GLOBAL_SETTINGS.userOVERSHOOT)
+            {
+                GLOBAL_SETTINGS.userOVERSHOOT = FALSE;
+                g_NVParameters.nv_overshoot = FALSE; // UPDATE THE SETTING TO NVRAM
+                SYSTEM_SaveNVParametersXT(); 		 // 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+
+        // CHECK CAL TABLE
+        if (strcmp(FORM_address[12].value, "CalTableChecked") == 0)
+        {
+            if (!GLOBAL_SETTINGS.USE_CAL_TABLE)
+            {
+                GLOBAL_SETTINGS.USE_CAL_TABLE = TRUE;
+                g_NVParameters.nv_useCTSTORE = TRUE;
+                SYSTEM_SaveNVParametersXT();	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+        else
+        {
+            if (GLOBAL_SETTINGS.USE_CAL_TABLE)
+            {
+                GLOBAL_SETTINGS.USE_CAL_TABLE = FALSE;
+                g_NVParameters.nv_useCTSTORE = FALSE;
+                SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+
+        if ((strcmp("SERIAL", FORM_address[13].value) == 0) && (INSTRUMENT.stateDEVICE_MODE_MT100A == TRUE))
+        {
+            INSTRUMENT.stateDEVICE_MODE_MT100A = FALSE; // set MT-100A MODE to OFF
+            g_NVParameters.nv_terminal_mode = TRUE;     // means RS-232 in terminal_mode; NOT MT-100A mode
+            SYSTEM_SaveNVParametersXT();	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+        else if ((strcmp("MT100A", FORM_address[13].value) == 0) && (INSTRUMENT.stateDEVICE_MODE_MT100A == FALSE))
+        {
+            INSTRUMENT.stateDEVICE_MODE_MT100A = TRUE; // set MT-100A MODE to ON
+            g_NVParameters.nv_terminal_mode = FALSE;   // means RS-232 in MT-100A mode, not terminal_mode
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+
+        // PROCESS THE NETWORK CONFIGURATION CHANGES
+        user_ip = inet_addr(FORM_address[0].value);
+        user_netmask = inet_addr(FORM_address[1].value);
+        user_gateway = inet_addr(FORM_address[2].value);
+        user_dhcp = atoi(FORM_address[4].value);
+        user_port = atoi(FORM_address[7].value);
+
+        //Handle new Network Configuration
+        if (user_port != g_ENET_PORT)
+        {
+            g_NVParameters.nv_port = g_ENET_PORT = user_port;
+            SYSTEM_SaveNVParametersXT(); // 02.06.21 RD01 // 02.02.22 PRESERVE SERIAL PORT B
+            ENET_DropConnections(-1);
+        }
+
+        if (!user_dhcp)
+        {
+            if (ENET_GetDHCP() || ENET_GetAutoIP())
+            {
+                //User turned DHCP off
+                //When turning DHCP off, so we want our static IP to be whatever it was when DHCP was on
+                //We could get the current configuration from the web forms
+                //but this is a better approach
+                g_NVParameters.nv_ip_addr = ENET_GetIP();
+                g_NVParameters.nv_netmask = ENET_GetNetmask();
+                g_NVParameters.nv_gateway = ENET_GetGateway();
+                g_NVParameters.nv_useDHCP = 0;
+            }
+            else
+            {
+                //DHCP was already off
+                //Save settings from web page
+                g_NVParameters.nv_ip_addr = user_ip;
+                g_NVParameters.nv_netmask = user_netmask;
+                g_NVParameters.nv_gateway = user_gateway;
+                g_NVParameters.nv_useDHCP = 0;
+            }
+            //Always save the parameters and reconfigure the interface
+            SYSTEM_SaveNVParametersXT(); // 02.06.21 RD01 // 02.02.22 PRESERVE SERIAL PORT B
+            ENET_Reconfigure(0,
+                             g_NVParameters.nv_ip_addr,
+                             g_NVParameters.nv_netmask,
+                             g_NVParameters.nv_gateway);
+        }
+        else
+        {
+            if (!(ENET_GetDHCP() || ENET_GetAutoIP()))
+            {
+                //User turned DHCP on
+                g_NVParameters.nv_useDHCP = 1;
+                SYSTEM_SaveNVParametersXT(); // 02.06.21 RD01 // 02.02.22 PRESERVE SERIAL PORT B
+                ENET_Reconfigure(1, 0, 0, 0);
+            }
+        }
+
+        _f_strcpy(g_NVParameters.nv_password, FORM_address[9].value);
+        _f_strcpy(g_NVParameters.nv_description, FORM_address[5].value);
+        SYSTEM_SaveNVParametersXT(); // 02.06.21 RD01 // 02.02.22 PRESERVE SERIAL PORT B
+
+        if (sauth_setpassword(user1, g_NVParameters.nv_password) != 0)
+        {
+#ifdef DEBUG_WEB
+            printf("ERROR in setting password!\n");
+#endif
+        }
+
+        if (strcmp("", FORM_address[9].value) == 0) // blank password //
+        {
+            sspec_removeuser(page1, user1);
+            sspec_removeuser(page2, user1);
+            sspec_setrealm(page1, "");
+            sspec_setrealm(page2, "");
+        }
+        else
+        {
+            sspec_adduser(page1, user1);
+            sspec_adduser(page2, user1);
+#ifdef DEVICE_XT100
+            sspec_setrealm(page1, "XT-100");
+            sspec_setrealm(page2, "XT-100");
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+            sspec_setrealm(page1, "XT-100");
+            sspec_setrealm(page2, "XT-100");
+#endif
+#ifdef DEVICE_XT200
+            sspec_setrealm(page1, "XT-200");
+            sspec_setrealm(page2, "XT-200");
+#endif
+#ifdef DEVICE_XR100
+            sspec_setrealm(page1, "XR-100");
+            sspec_setrealm(page2, "XR-100");
+#endif
+#ifdef DEVICE_XT300
+            sspec_setrealm(page1, "XT-300");
+            sspec_setrealm(page2, "XT-300");
+#endif
+#if defined(DEVICE_XS100)
+            sspec_setrealm(page1, "XS-100");
+            sspec_setrealm(page2, "XS-100");
+#endif
+        }
+
+        //Set the net status identify based on the form input
+        //NETSTAT_set_identify(user_identify);
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report_config, "POST PARSING ERROR");
+        cgi_redirectto(state, "/configure.shtml");
+        return 0;
+    }
+
+    //All done
+    cgi_redirectto(state, "/apply.shtml");
+    return 0;
+}
+
+int form_mode(HttpState *state)
+{
+    int len;
+
+    // init the FORMSpec data
+    FORM_mode[0].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_mode);
+    if (parse_post(state, FORM_mode, len))
+    {
+        if (strcmp("Serial", FORM_mode[0].value) == 0)
+        {
+            INSTRUMENT.stateDEVICE_MODE_MT100A = FALSE; // set MT-100A MODE to OFF
+            g_NVParameters.nv_terminal_mode = TRUE;     // means RS-232 in terminal_mode; NOT MT-100A mode
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+        else if (strcmp("MT100A", FORM_mode[0].value) == 0)
+        {
+            INSTRUMENT.stateDEVICE_MODE_MT100A = TRUE; // set MT-100A MODE to ON
+            g_NVParameters.nv_terminal_mode = FALSE;   // means RS-232 in MT-100A mode, not terminal_mode
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+        else
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID SETTING");
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_overshoot(HttpState *state)
+{
+    int len;
+
+    // init the FORMSpec data
+    FORM_overshoot[0].value[0] = '\0';
+    FORM_overshoot[1].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_overshoot);
+    if (parse_post(state, FORM_overshoot, len))
+    {
+
+        // CHECK OVERSHOOT
+        if (strcmp(FORM_overshoot[0].value, "OvershootChecked") == 0)
+        {
+            if (!GLOBAL_SETTINGS.userOVERSHOOT)
+            {
+                GLOBAL_SETTINGS.userOVERSHOOT = TRUE;
+                g_NVParameters.nv_overshoot = TRUE; // UPDATE THE SETTING IN NVRAM
+	            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+        else
+        {
+            if (GLOBAL_SETTINGS.userOVERSHOOT)
+            {
+                GLOBAL_SETTINGS.userOVERSHOOT = FALSE;
+                g_NVParameters.nv_overshoot = FALSE; // UPDATE THE SETTING IN NVRAM
+	            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+
+        // CHECK CAL TABLE
+        if (strcmp(FORM_overshoot[1].value, "CalTableChecked") == 0)
+        {
+            if (!GLOBAL_SETTINGS.USE_CAL_TABLE)
+            {
+                GLOBAL_SETTINGS.USE_CAL_TABLE = TRUE;
+                g_NVParameters.nv_useCTSTORE = TRUE;
+            	SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+        else
+        {
+            if (GLOBAL_SETTINGS.USE_CAL_TABLE)
+            {
+                GLOBAL_SETTINGS.USE_CAL_TABLE = FALSE;
+                g_NVParameters.nv_useCTSTORE = FALSE;
+	            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            }
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_ctstore(HttpState *state)
+{
+    int len;
+
+    // init the FORMSpec data
+    FORM_ctstore[0].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_ctstore);
+    if (parse_post(state, FORM_ctstore, len))
+    {
+        if (strcmp("CTSTORE_ON", FORM_ctstore[0].value) == 0)
+        {
+            //INSTRUMENT.stateDEVICE_MODE_MT100A = FALSE; // set MT-100A MODE to OFF
+            //g_NVParameters.nv_terminal_mode = TRUE;     // means RS-232 in terminal_mode; NOT MT-100A mode
+            //SYSTEM_SaveNVParametersXT();                // 02.06.21 RD01
+
+            GLOBAL_SETTINGS.USE_CAL_TABLE = TRUE;
+            g_NVParameters.nv_useCTSTORE = TRUE;
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+        else if (strcmp("CTSTORE_OFF", FORM_ctstore[0].value) == 0)
+        {
+            //INSTRUMENT.stateDEVICE_MODE_MT100A = TRUE; // set MT-100A MODE to ON
+            //g_NVParameters.nv_terminal_mode = FALSE;   // means RS-232 in MT-100A mode, not terminal_mode
+            //SYSTEM_SaveNVParametersXT();               // 02.06.21 RD01
+
+            GLOBAL_SETTINGS.USE_CAL_TABLE = FALSE;
+            g_NVParameters.nv_useCTSTORE = FALSE;
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+        }
+        else
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID SETTING");
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_sethost(HttpState *state)
+{
+    int len;
+
+    // init the FORMSpec data
+    FORM_sethost[0].value[0] = '\0';
+    FORM_sethost[1].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_sethost);
+    if (parse_post(state, FORM_sethost, len))
+    {
+
+        // set the hostname with the value in FORM_sethost[0].value
+        if ((strcmp("\0", FORM_sethost[0].value) != 0) && (strlen(FORM_sethost[0].value) <= 16))
+        {
+            // NOT NULL SO SET THE NEW HOSTNAME
+            _f_strcpy(g_NVParameters.nv_hostname, FORM_sethost[0].value);
+            SYSTEM_SaveNVParametersXT(); 	// 02.02.22 PRESERVE SERIAL PORT B
+            _f_strcpy(g_DynamicMemHostName, g_NVParameters.nv_hostname);
+            g_RetCode = sethostname(g_DynamicMemHostName); // 01.20.21
+#ifdef DEBUG_WEB // 05.14.07
+            printf("SET HOST NAME g_RetCode = %s\n", g_RetCode);
+#endif
+            cmdRST(1);
+            //state_http_ERROR = 1;
+            //sprintf(error_report, "Setting DHCP HostName to %s and re-initializing network.\r\n", g_RetCode);
+        }
+        else
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "Cannot set hostname.");
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/info.shtml");
+    return 0;
+}
+
+int form_commands(HttpState *state)
+{
+    int len;
+
+    // init the FORMSpec data
+    FORM_commands[0].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_commands);
+    if (parse_post(state, FORM_commands, len))
+    {
+        if (strcmp("Self-Test", FORM_commands[0].value) == 0)
+        {
+#ifdef DEVICE_XT100
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 1 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "625");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 2 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") == 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test Pass.");
+            }
+            else
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 3 of 3.");
+            }
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 1 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "312.5");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 2 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") == 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test Pass.");
+            }
+            else
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 3 of 3.");
+            }
+#endif
+
+#ifdef DEVICE_XT200
+            _f_strcpy(cmdARG1, "DEL1");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 1 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL1");
+       		// 02.15.22 HANDLE DEVICE_XT200_312P SUPPORT
+            #ifdef DEVICE_XT200_312P
+            _f_strcpy(cmdARG2, "312.50");
+            #else
+            _f_strcpy(cmdARG2, "625");
+            #endif
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") != 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 2 of 3.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+
+            _f_strcpy(cmdARG1, "DEL1");
+            _f_strcpy(cmdARG2, "0");
+            SYSTEM_ExecuteCommand();
+            cmdOPCQ();
+            // OPC? RESPONSE IS IN INSTRUMENT.WEB_MESSAGE_DISPLAY
+            if (_f_strcmp(INSTRUMENT.WEB_MESSAGE_DISPLAY, "1\r\n") == 0)
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test Pass.");
+            }
+            else
+            {
+                _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Self-Test fail at step 3 of 3.");
+            }
+#endif
+
+#ifdef DEVICE_XR100
+            cmdTSTQ();
+            cmdERR();
+#endif
+#if defined(DEVICE_XS100)
+            cmdTSTQ();
+            cmdERR();
+#endif
+        }
+        else if (strcmp("Reset", FORM_commands[0].value) == 0)
+        {
+            sspec_removeuser(page1, user1);
+            sspec_removeuser(page2, user1);
+            sspec_setrealm(page1, "");
+            sspec_setrealm(page2, "");
+            sspec_adduser(page1, user1);
+            sspec_adduser(page2, user1);
+#ifdef DEVICE_XT100
+            sspec_setrealm(page1, "XT-100");
+            sspec_setrealm(page2, "XT-100");
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+            sspec_setrealm(page1, "XT-100");
+            sspec_setrealm(page2, "XT-100");
+#endif
+#ifdef DEVICE_XT200
+            sspec_setrealm(page1, "XT-200");
+            sspec_setrealm(page2, "XT-200");
+#endif
+#ifdef DEVICE_XR100
+            sspec_setrealm(page1, "XR-100");
+            sspec_setrealm(page2, "XR-100");
+#endif
+#ifdef DEVICE_XT300
+            sspec_setrealm(page1, "XT-300");
+            sspec_setrealm(page2, "XT-300");
+#endif
+#if defined(DEVICE_XS100)
+            sspec_setrealm(page1, "XS-100");
+            sspec_setrealm(page2, "XS-100");
+#endif
+            cmdRST(1); // 05.08.07 FULL HARDWARE RESET
+            cgi_redirectto(state, "/");
+            return 0;
+        }
+        else
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID COMMAND");
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_queries(HttpState *state)
+{
+    int len;
+    float display_one, display_two;
+
+    // init the FORMSpec data
+    FORM_queries[0].value[0] = '\0';
+
+    state->p = state->buffer;
+
+    len = sizeof(FORM_commands);
+    if (parse_post(state, FORM_queries, len))
+    {
+        if (_f_strcmp("DEL", FORM_queries[0].value) == 0)
+        {
+            // DEL?
+            //returns the current delay setting for channel ONE and TWO into SYSTEM_OutputQueryResponse
+            if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)
+            {
+                DISPLAY_SETTINGS.CURRENT_DELAY_ONE_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS * 1.0E-12;
+                DISPLAY_SETTINGS.CURRENT_DELAY_TWO_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS * 1.0E-12;
+                display_one = DISPLAY_SETTINGS.CURRENT_DELAY_ONE_E;
+                display_two = DISPLAY_SETTINGS.CURRENT_DELAY_TWO_E;
+            }
+            sprintf(WEB_QueryResults, "%12.4e,%12.4e\r\n", display_one, display_two);
+        }
+        else if (strcmp("DEL1", FORM_queries[0].value) == 0)
+        {
+            // DEL1?
+            //returns the current delay setting for channel ONE into SYSTEM_OutputQueryResponse
+            if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)
+            {
+                DISPLAY_SETTINGS.CURRENT_DELAY_ONE_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS * 1.0E-12;
+            }
+            else
+            {
+                DISPLAY_SETTINGS.CURRENT_DELAY_ONE_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS * 0.50E-12;
+            }
+            sprintf(WEB_QueryResults, "%12.4e\r\n", DISPLAY_SETTINGS.CURRENT_DELAY_ONE_E);
+        }
+        else if (_f_strcmp("DEL2", FORM_queries[0].value) == 0)
+        {
+            // DEL2?
+            // returns the current delay setting for channel TWO into SYSTEM_OutputQueryResponse
+            if (INSTRUMENT.stateDEVICE_MODE == DEVICE_SERIAL)
+            {
+                DISPLAY_SETTINGS.CURRENT_DELAY_TWO_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS * 1.0E-12;
+            }
+            else
+            {
+                DISPLAY_SETTINGS.CURRENT_DELAY_TWO_E = INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS * 0.50E-12;
+            }
+            sprintf(WEB_QueryResults, "%12.4e\r\n", DISPLAY_SETTINGS.CURRENT_DELAY_TWO_E);
+        }
+        else if (_f_strcmp("IDN", FORM_queries[0].value) == 0)
+        {
+// *IDN?
+#ifdef DEVICE_XT200
+#ifdef PRIMARY_TROMBONE
+            sprintf(WEB_QueryResults, "%s,%s-625P,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceSN, swVERSION);
+#endif
+#ifdef SECONDARY_TROMBONE
+            sprintf(WEB_QueryResults, "%s,%s-625P,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceSN, swVERSION);
+#endif
+
+#endif
+
+#ifdef DEVICE_XT100
+#ifndef SECONDARY_TROMBONE
+            sprintf(WEB_QueryResults, "%s,%s-%s,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceIDN_DISPLAY, deviceSN, swVERSION);
+#else
+            sprintf(WEB_QueryResults, "%s,%s-625P,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceSN, swVERSION);
+#endif
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+#ifndef SECONDARY_TROMBONE
+            sprintf(WEB_QueryResults, "%s,%s-%s,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceIDN_DISPLAY, deviceSN, swVERSION);
+#else
+            sprintf(WEB_QueryResults, "%s,%s-625P,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceSN, swVERSION);
+#endif
+#endif
+
+#ifdef DEVICE_XR100
+            sprintf(WEB_QueryResults, "%s,%s-%s,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceIDN_DISPLAY, deviceSN, swVERSION);
+#endif
+#if defined(DEVICE_XS100)
+            sprintf(WEB_QueryResults, "%s,%s-%s,%s,%s\r\n", deviceMANUFACTURER, deviceMODEL, deviceIDN_DISPLAY, deviceSN, swVERSION);
+#endif
+        }
+        else if (_f_strcmp("CAL", FORM_queries[0].value) == 0)
+        {
+            // *CAL?
+            cmdCAL();
+            if (INSTRUMENT.stateERROR == NO_ERROR)
+            {
+                _f_strcpy(WEB_QueryResults, "PASS");
+            }
+            else
+            {
+                _f_strcpy(WEB_QueryResults, "FAIL");
+            }
+        }
+        else if (_f_strcmp("OPC", FORM_queries[0].value) == 0)
+        {
+            // *OPC?
+            cmdOPCQ();
+            // RESULTS ARE PLACED IN:
+            // COPY THE RESPONSE OUT TO THE WEB SERVER MESSAGE DISPLAY AREA
+            // INSTRUMENT.WEB_MESSAGE_DISPLAY,BUFFERS.DISPLAY_LINE
+            _f_strcpy(WEB_QueryResults, INSTRUMENT.WEB_MESSAGE_DISPLAY);
+        }
+        else
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID COMMAND");
+        }
+    }
+    else
+    {
+        state_http_ERROR = 1;
+        _f_strcpy(error_report, "POST PARSING ERROR");
+    }
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_relay(HttpState *state)
+{
+    int len;
+    int relay_number;
+    char relay_state[5];
+    int hwSET_RELAY;
+    float sumDELAY;
+    int j, i;
+    // init the FORMSpec data
+    FORM_relay[0].value[0] = '\0';
+    FORM_relay[1].value[0] = '\0';
+    state->p = state->buffer;
+
+    len = sizeof(FORM_relay);
+
+#ifndef DEVICE_XT200
+    if (parse_post(state, FORM_relay, len))
+    {
+        if (HW_RELAYS.NUM_OF_SECTIONS == 0) // 07.25.21 IF NO RELAYS INSTALLED
+        {
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "No relays installed.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+        }
+
+        for (i = 0; i < strlen(FORM_relay[0].value); i++)
+        {
+            if (isdigit(FORM_relay[0].value[i]) == 0)
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "INVALID ARGUMENT. PLEASE ENTER # 1-16.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+        }
+        relay_number = atoi(FORM_relay[0].value);
+        if ((relay_number < 0) || (relay_number > 100))
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID ARGUMENT. PLEASE ENTER # 0-100.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+        }
+
+        memset(cmdCOMMAND, 0x00, sizeof(cmdCOMMAND)); // clear out buffer
+        _f_strcpy(relay_state, FORM_relay[1].value);
+
+        // TOGGLE THE CORRESPONDING RELAY
+
+        if (relay_number <= HW_RELAYS.NUM_OF_SECTIONS)
+        {
+            _f_strcpy(cmdCOMMAND, "REL ");
+            strcat(cmdCOMMAND, FORM_relay[0].value);
+            strcat(cmdCOMMAND, " ");
+
+            // TOGGLE THE CORRESPONDING RELAY
+            if (HW_RELAYS.RELAY_ON_OFF[relay_number] == TRUE)
+                strcat(cmdCOMMAND, "OFF");
+            else
+                strcat(cmdCOMMAND, "ON");
+        }
+        else
+        {
+#ifdef DEVICE_XT100
+            // CANT SPECIFY REL # ABOVE THE NUMBER OF INSTALLED RELAYS 07.25.21
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Relay # not installed.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+#endif
+// 10.06.21 RD081621 BUILD
+#ifdef DEVICE_XT100_312P
+            // CANT SPECIFY REL # ABOVE THE NUMBER OF INSTALLED RELAYS 07.25.21
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Relay # not installed.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+#endif
+
+#ifdef DEVICE_XR100
+            _f_strcpy(cmdCOMMAND, "RELC ");
+            strcat(cmdCOMMAND, FORM_relay[0].value);
+#endif
+#if defined(DEVICE_XS100)
+            _f_strcpy(cmdCOMMAND, "PIN ");
+            strcat(cmdCOMMAND, FORM_relay[0].value);
+#endif
+        }
+
+#ifdef DEBUG_WEB // 05.14.07
+        printf("command = %s\n", cmdCOMMAND);
+#endif
+
+        SYSTEM_ParseInputCommand(cmdCOMMAND);         // parse the command
+        SYSTEM_ExecuteCommand();                      // execute the command
+        memset(cmdCOMMAND, 0x00, sizeof(cmdCOMMAND)); // clear out buffer
+        #if defined(DEVICE_XS100)
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "PIN diode toggled.");
+        #else
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Relay(s) toggled.");
+        #endif
+    }
+#else
+    // FOR XT-200 THERE ARE NO RELAYS
+    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "No relays in XT-200.");
+#endif
+
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int form_relc(HttpState *state)
+{
+    int len;
+    int relay_cycles;
+    char relay_state[5];
+    int hwSET_RELAY;
+    float sumDELAY;
+    int j, i;
+    // init the FORMSpec data
+    FORM_relay[0].value[0] = '\0';
+    FORM_relay[1].value[0] = '\0';
+    state->p = state->buffer;
+
+    len = sizeof(FORM_relc);
+
+#ifndef DEVICE_XT200
+    if (parse_post(state, FORM_relc, len))
+    {
+        if (HW_RELAYS.NUM_OF_SECTIONS == 0) // 07.25.21 IF NO RELAYS INSTALLED
+        {
+            _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "No relays installed.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+        }
+
+        for (i = 0; i < strlen(FORM_relc[0].value); i++)
+        {
+            if (isdigit(FORM_relc[0].value[i]) == 0)
+            {
+                state_http_ERROR = 1;
+                _f_strcpy(error_report, "INVALID ARGUMENT. PLEASE ENTER # 1-16.");
+                cgi_redirectto(state, "/control.shtml");
+                return 0;
+            }
+        }
+        relay_cycles = atoi(FORM_relc[0].value);
+        if ((relay_cycles < 1) || (relay_cycles > 100))
+        {
+            state_http_ERROR = 1;
+            _f_strcpy(error_report, "INVALID ARGUMENT. PLEASE ENTER # 1-100.");
+            cgi_redirectto(state, "/control.shtml");
+            return 0;
+        }
+
+        memset(cmdCOMMAND, 0x00, sizeof(cmdCOMMAND)); // clear out buffer
+        _f_strcpy(relay_state, FORM_relc[1].value);
+
+// CYCLE THE RELAYS FOR relay_cycles
+#ifdef DEVICE_XR100
+        _f_strcpy(cmdCOMMAND, "RELC ");
+        strcat(cmdCOMMAND, FORM_relc[0].value);
+#endif
+#if defined(DEVICE_XS100)
+        _f_strcpy(cmdCOMMAND, "PIN ");
+        strcat(cmdCOMMAND, FORM_relc[0].value);
+#endif
+#ifdef DEBUG_WEB // 05.14.07
+        printf("command = %s\n", cmdCOMMAND);
+#endif
+
+        SYSTEM_ParseInputCommand(cmdCOMMAND);         // parse the command
+        SYSTEM_ExecuteCommand();                      // execute the command
+        memset(cmdCOMMAND, 0x00, sizeof(cmdCOMMAND)); // clear out buffer
+        _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "Exercising relays completed.");
+    }
+#else
+    // FOR XT-200 THERE ARE NO RELAYS
+    _f_strcpy(INSTRUMENT.WEB_MESSAGE_DISPLAY, "No relays in XT-200.");
+#endif
+
+    cgi_redirectto(state, "/control.shtml");
+    return 0;
+}
+
+int reset_button(HttpState *state)
+{
+    cmdRST(1); // 05.08.07 FULL HARDWARE RESET
+    //redirect to new IP address? what if DHCP?
+    cgi_redirectto(state, "/");
+    return 0;
+}
+
+// function prototypes
+void install_firmware();
+
+struct
+{
+    char running[40]; // information on the currently running firmware
+    char temp[40];    // information on the uploaded file
+    int show_temp;    // 1 == show info on temp firmware (set to 0 for
+                      // boards that only allow direct uploading)
+    int show_install; // flag whether to show install button or not
+                      // 1 == show, 0 == don't show, -1 == show error
+    char error[80];
+    int install; // flag to initiate install and to indicate whether
+                 // there was an error (0 == normal, 1 == initiate
+                 // install, -1 == error attempting install)
+} firmware;
+#web firmware
+#web firmware.install
+#web_update firmware.install install_firmware
+
+void install_firmware()
+{
+    int i, result;
+
+#ifdef DEBUG_WEB
+    printf("user clicked install/reboot button\n");
+#endif
+
+#ifdef BU_TEMP_USE_DIRECT_WRITE
+    // Firmware is already installed, just need to shut down HTTP server
+    // and reboot.
+    http_shutdown(0);
+    exit(0);
+#endif
+
+// 08.06.21 CANNOT DO FW UPDATES FOR DEVICE_XT200
+// 02.11.22 remove for testing #ifndef DEVICE_XT200
+    result = buOpenFirmwareTemp(BU_FLAG_NONE);
+
+    if (result)
+    {
+        sprintf(firmware.error, "Error %d opening firmware.", result);
+        firmware.install = -1;
+    }
+    else
+    {
+        result = buVerifyFirmwareBlocking();
+        if (result)
+        {
+            while (buCloseFirmware() == -EBUSY)
+                ;
+            sprintf(firmware.error, "Error %d installing firmware.", result);
+            firmware.install = -1;
+        }
+        else
+        {
+            // shut down HTTP server and install
+            http_shutdown(0);
+            if (buInstallFirmware())
+            {
+                // on error, restart http server
+                http_init();
+            }
+            else
+            {
+                // Install was successful, reboot into new firmware.
+                exit(0);
+            }
+        }
+    }
+    // 02.11.22 remove for testing
+    //#endif
+}
+
+// need to call this after upload completes...
+void update_webvars()
+{
+    firmware_info_t fi;
+    int i, err;
+
+// 08.06.21 CANNOT DO FW UPDATES FOR DEVICE_XT200
+// 02.11.22 remove for testing
+//#ifndef DEVICE_XT200
+
+    // load information on the current firmware
+    fiProgramInfo(&fi);
+    sprintf(firmware.running, "%s v%u.%02x", fi.program_name,
+            fi.version >> 8, fi.version & 0xFF);
+
+#ifdef BU_TEMP_USE_DIRECT_WRITE
+    // no temp firmware to show information about
+    firmware.show_temp = 0;
+#else
+    firmware.show_temp = 1;
+#endif
+
+    // load information on firmware stored in temporary location
+    err = buOpenFirmwareTemp(BU_FLAG_NONE);
+
+    if (!err)
+    {
+        // buGetInfo is a non-blocking call, and may take multiple attempts
+        // before the file is completely open.
+        i = 0;
+        do
+        {
+            err = buGetInfo(&fi);
+        } while ((err == -EBUSY) && (++i < 20));
+    }
+    if (err)
+    {
+        sprintf(firmware.temp, "Error %d verifying firmware", err);
+        firmware.show_install = -1;
+    }
+    else
+    {
+        sprintf(firmware.temp, "%s v%u.%02x", fi.program_name,
+                fi.version >> 8, fi.version & 0xFF);
+        // firmware is good, try to verify it
+        err = buRewindFirmware();
+        if (!err)
+        {
+            err = buVerifyFirmwareBlocking();
+        }
+        // if no errors, show a button (1) so user can try to install this
+        // firmware, or show an error message that image is corrupted (-1)
+        firmware.show_install = err ? -1 : 1;
+    }
+    while (buCloseFirmware() == -EBUSY)
+        ;
+
+    firmware.install = 0;
+    *firmware.error = '\0';
+
+// 02.11.22 remove for testing
+// #endif
+}
+
+// Firmware Upload function, based on http_defaultCGI from http.lib
+
+// Values for http_getState()
+#define FW_UPLOAD_INIT 0 // Initial state, set by server (must be 0)
+#define FW_UPLOAD_NORM 1 // Normal state (reading client data)
+
+// http_setCond() state variables
+#define FW_UPLOAD_ERROR 0 // Error code (<0)
+#if HTTP_MAX_COND < 1
+#fatal "HTTP_MAX_COND must be >= 1 if using firmware_upload()"
+#endif
+
+#ifndef HTTP_UPLOAD_SSL_SUPRESS_WARNING
+#ifdef __SSL_DEFS_LIB__
+#warns "HTTP Upload is not currently compatible with SSL. Make sure that"
+#warns "you are not using HTTP upload on SSL-secured ports. To eliminate"
+#warns "this warning, include '#define HTTP_UPLOAD_SSL_SUPRESS_WARNING'"
+#warns "in your program before the line '#use HTTP.LIB'."
+#endif
+#endif
+
+int firmware_upload(HttpState *s)
+{
+    auto char *fname; // Pointer to field (i.e. resource to upload) name
+    auto int rc, offset, mode, wlen, error;
+#ifdef VERBOSE
+    static long ms; // In verbose mode, keep track of throughput.
+#endif
+
+// 08.06.21 CANNOT DO FW UPDATES FOR DEVICE_XT200
+// test remove 02.11.22 #ifndef DEVICE_XT200
+
+    if (!(mode = http_getState(s)))
+    {
+        // Initial state (FW_UPLOAD_INIT).  Do things we want to do only
+        // once at the start.
+#ifdef VERBOSE
+        printf("HTTPU: init:\n");
+        printf("  HTTP version=%s\n", http_getHTTPVersion_str(s));
+        printf("  HTTP method=%s\n", http_getHTTPMethod_str(s));
+        printf("  Userid=%d\n", http_getContext(s)->userid);
+        printf("  URL=%ls\n", http_getURL(s));
+#endif
+        // First time through.  Generate HTTP header
+        http_setState(s, FW_UPLOAD_NORM);     // Next state is "normal"
+        http_setCond(s, FW_UPLOAD_ERROR, -1); // Temp file hasn't been opened
+                                              // Note: it is safe to use the getData buffer, since the first call to
+                                              // the CGI will not have any incoming data in that buffer.
+        http_genHeader(s, http_getData(s), HTTP_MAXBUFFER,
+                       200, NULL, 0,
+                       "<html><head><title>Upload status</title></head><body>");
+        return CGI_SEND; // Write string to client.
+    }
+
+    // Default return code.
+    rc = CGI_OK;
+
+    // Main switch depending on the current CGI action code
+    switch (http_getAction(s))
+    {
+    case CGI_START:
+        // Start of a new part of the multi-part data.
+        fname = http_getField(s);
+#ifdef VERBOSE
+        printf("HTTPU: START content_length=%ld\n", http_getContentLength(s));
+        printf("  field name=%s\n", fname);
+        printf("  disposition=%d\n", http_getContentDisposition(s));
+        printf("  transfer_encoding=%d\n", http_getTransferEncoding(s));
+        printf("  content_type=%s\n", http_getContentType(s));
+        ms = MS_TIMER;
+#endif
+        if (fname[0] != '/')
+        {
+            http_skipCGI(s); // Not a file: skip to next part.
+        }
+        else
+        {
+            // Yes, it's a file to upload
+            while ((error = buTempCreate()) == -EBUSY)
+                ;
+            http_setCond(s, FW_UPLOAD_ERROR, error); // Save error code
+            if (error < 0)
+            {
+                sprintf(http_getData(s),
+                        "<h2><font color=red>%s</h2><h2>Error code %d</h2>\n",
+                        "Failed: could not open file.", error);
+                http_skipCGI(s); // Skip to next part after sending this buffer
+            }
+            else
+            {
+                // Try writing a string to the client.  Most browsers will be
+                // able to display this straight away.  This will give some
+                // confirmation that something is happening.
+                _f_strcpy(http_getData(s), "<h2>Loading firmware...this will take a few minutes...</h2>");
+            }
+            rc = CGI_SEND;
+        }
+        break;
+
+    case CGI_DATA:
+        // This is data to write to the resource.
+        if (http_getCond(s, FW_UPLOAD_ERROR) < 0)
+        {
+            // This should never happen (since we always skip data if there is
+            // an error opening the resource), but it doesn't hurt to check!
+            return 0;
+        }
+#ifdef VERBOSE
+        printf("HTTPU: DATA length=%d (total %ld)\n", http_getDataLength(s),
+               http_getContentLength(s));
+#endif
+        offset = 0;
+        do
+        {
+            wlen = buTempWrite(http_getData(s) + offset,
+                               http_getDataLength(s) - offset);
+            if (wlen == -EBUSY)
+            {
+                // ignore BUSY error and try again
+                wlen = 0;
+            }
+            else if (wlen < 0)
+            {
+#ifdef BU_TEMP_USE_DIRECT_WRITE
+                // need to restore original firmware before continuing
+                if (wlen != -ENODATA)
+                {
+                    buRestoreFirmware(0);
+                }
+#endif
+                http_setCond(s, FW_UPLOAD_ERROR, wlen); // Save error code
+                sprintf(http_getData(s),
+                        "<h2><font color=red>%s</h2><h2>Error code %d</h2>\n",
+                        "Upload failed: could not write.", wlen);
+                http_skipCGI(s); // Skip to next part
+                return CGI_SEND; // ...after sending this message
+            }
+            offset += wlen;
+        } while (offset != http_getDataLength(s));
+        break;
+
+    case CGI_END:
+        // End of this file.  Close it.
+#ifdef VERBOSE
+        ms = MS_TIMER - ms;
+        if (ms < 1)
+        {
+            ms = 1;
+        }
+        printf("HTTPU: END ----------- "
+               "actual received length=%ld, %f sec, %f bytes/sec\n",
+               http_getContentLength(s), 0.001 * ms,
+               http_getContentLength(s) * 1000.0 / ms);
+#endif
+        while (buTempClose() == -EBUSY)
+            ;
+        http_setCond(s, FW_UPLOAD_ERROR, -1); // No open resource now
+        update_webvars();
+        sprintf(http_getData(s),
+                "<h2><font color=\"#009900\">Firmware uploaded successfully.</font>"
+                "</h2><h2>%ld bytes, %s</h2>",
+                http_getContentLength(s), firmware.temp);
+        rc = CGI_SEND;
+        break;
+
+    case CGI_EOF:
+        // Normal end of entire set of parts.
+#ifdef VERBOSE
+        printf("HTTPU: EOF (unused content=%ld) \"%ls\"\n", s->content_length,
+               http_getData(s));
+#endif
+        if (firmware.show_install == -1)
+        {
+            _f_strcpy(http_getData(s),
+                      "<p>Image corrupted or not compatible with this hardware.</p>"
+                      "<p><a href=\"/\">Home</a></p></body></html>\n");
+#ifdef BU_TEMP_USE_DIRECT_WRITE
+            // need to restore original firmware before continuing
+            buRestoreFirmware(0);
+#endif
+        }
+        else if (firmware.show_install == 1)
+        {
+            // On boards without temp staging area, firmware is installed
+            // at this point and the user can only reboot.
+            sprintf(http_getData(s),
+                    "<form action=\"index.zhtml\" method=\"POST\">"
+                    "<input type=\"hidden\" name=\"firmware.install\" value=\"1\">"
+                    "<input type=\"submit\" value=\"%s\"></form>\n",
+#ifdef BU_TEMP_USE_DIRECT_WRITE
+                    "Reboot"
+#else
+                    "Install"
+#endif
+            );
+        }
+        else
+        {
+            _f_strcpy(http_getData(s),
+                      "<p><a href=\"/\">Home</a></p></body></html>\n");
+        }
+
+        // Send this last message, and we are done!
+        rc = CGI_SEND_DONE;
+        break;
+
+    case CGI_ABORT:
+        // Server had to abort the connection.
+#ifdef VERBOSE
+        printf("HTTPU: ABORT CGI\n");
+#endif
+        // Clean up resource if one was open.
+        while (buTempClose() == -EBUSY)
+            ;
+        break;
+    }
+// 02.11.22 test remove
+//    #else
+//    // DEVICE_XT200 IS UNABLE TO PERFORM FIRMWARE UPLOAD
+//
+//#endif
+
+    // Return one of
+    //  CGI_OK : normal continuation
+    //  CGI_MORE : call back with CGI_CONTINUE since we hadn't finished something
+    //  CGI_DONE : terminate the connection normally.
+    //  CGI_SEND : send what's in the buffer
+    //  CGI_SEND_DONE : send what's in the buffer, and we're done.
+    return rc;
+}
+
+/*** BeginHeader */
+#endif //WEB_INTERFACE_LIB
+/*** EndHeader */

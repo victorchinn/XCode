@@ -1,0 +1,677 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*   File        : ENET.LIB
+*   Description : This library file handles the Ethernet Interface
+*   Project     : Colby Instruments Programmable Delay Line X SERIES
+*   Date        : MAY 17, 2021
+*               : Copyright(c) 2004, 2005 Colby Instruments, Bellevue, WA
+*               : Copyright(c) 2021 Colby Instruments, Bellevue, WA
+*   NOTES:      : PRODUCTION VERSION.
+*               : VERSION 3 includes WEB_SERVER updates
+END DESCRIPTION ***************************************************************/
+
+// 03.06.08		MULTIPLE-SESSION SUPPORT ADDED
+// 03.06.08		ALL HW1 CODE COMPILES TO NOW HAVE MULTI-SESSION SOCKET SUPPORT
+// 03.06.08		NOTE: MUST REMOVE #MEMMAP XMEM STATEMENT IN APPLICATION PROGRAM
+// 03.16.15		add AUTODROP support into NVRAM
+// 02.07.20		added DHCP_SEND_HOSTNAME and DHCP_CLASS_ID IN #define
+// 02.11.20		added SETHOSTNAME (Hostname) and #ifdef SET_HOSTNAME
+// 02.11.20		VERIFIED WORKING WITH EARLIER VERSIONS OF MAIN SOURCE CODE
+// 01.20.21		added SETHOSTNAME also in ETH Reconfig Section
+// 01.25.21		HOSTNAMES VERSION -- R&D
+// 01.25.21		ENET FIXES FROM HW2V2 ENET LIB CODE TO HANDLE IF DHCP FAILS
+// 01.26.21		handles #ifdef DHCP_SEND_HOSTNAME
+// 02.07.21		RD02 added #define NET_STATUS in order to use network led in bargraph
+// 02.07.21    #ifdef NET_STATUS and added NETSTAT_tick(0);
+
+// BUILD 2106 *****************************************************************
+// BUILD 2106 *****************************************************************
+// BUILD 2106 *****************************************************************
+// RD030421.LIB	   INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS CODE (CHANGE TO NET_STATUS_B2106_RD030421.LIB
+// 05.03.21	ADD IN RD030421 LIB CODE CHANGES AND PREPARE FOR XT-SYSTEM BUILD
+
+// 05.17.21 XT SYSTEM BUILD - RENAME OF ENET_HW1_V3_B2106_RD030421_HW3RD01.LIB TO X_SER_ENET_B2109.LIB
+
+// 07.26.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 08.17.21 UPDATES TO HWIO_REL APIS, ROUND DOWN BUG AT LAST SECTION (SECTION NOW TURNS OFF FOR TROBONE TO DO REMAINDER)
+
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+
+// 11.11.21 BUILD2112_RD102121_RD111121
+// 11.11.21	ENET_Reconfigure: DO NOT SET NETMASK OR GATEWAY ADDR IN DHCP (GET THESE FROM ROUTER)
+// 11.11.21 ENET_Init: DO NOT SET NETMASK OR GATEWAY ADDR IN DHCP (GET THESE FROM ROUTER)
+
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+
+// 08.23.22 COMPARED/MERGED TO B2203 AND TIMING_TEST VERSIONS AND SOURCE CODE VER 1.17
+
+/*** BeginHeader */
+#ifndef X_SER_ENET_LIB
+#define x_SER_ENET_LIB
+/*** EndHeader */
+
+/*** BeginHeader ENET_Init */
+#define TCPCONFIG 6 // Empty Configuration, all done at runtime.
+#define USE_DHCP    // Build in the DHCP stuff. It's not necessarily enabled.
+#define TCP_BUF_SIZE 2048
+
+#define false 0
+#define true 1
+
+// 11.12.21
+// #define NET_VERBOSE
+//
+// 03.06.08		// THESE ITEMS WERE ADDED FOR MULTIPLE-SESSION SUPPORT
+//
+
+/* This determines how many listening sockets will be opened to accept incoming connections */
+#define ENET_MAX_CONNECTIONS 3
+// was 2 june 2008
+// 10.04.2017 was 4 and now changed to 3
+
+/* This tells the Rabbit TCP/IP stack how many socket buffers to allocate. There must be
+    enough for all sockets used in the system. Therefore, ensure that this number is at
+    least as large as ENET_MAX_CONNECTIONS plus any used for HTTP, plus 1 for internal use.
+    Don't set this to an arbitrarily large number though, because each socket allocated uses
+    more RAM. */
+#define MAX_TCP_SOCKET_BUFFERS 5 // was 4 02.06.21 RD01	// FOR BUILD 2106
+
+/* This determines whether old connections will be auto-dropped by default after library
+    initialization. */
+// DEFAULT IS 1 (TRUE)
+#define ENET_DEFAULT_AUTODROPCONNECTIONS 1
+
+/* This determines how long the library will wait for a socket to gracefully close before
+    forcing it closed with an abort. */
+#define ENET_GRACEFULCLOSE_TIMEOUT_MS 10000
+
+//
+
+#define ARP_CONFLICT_CALLBACK ENET_IPConflict
+
+// 10.03.2017 DO NOT ENABLE THIS SINCE CALLBACK FUNCTION IS NOT DEFINED
+// #define ENET_LINK_CALLBACK
+
+#use "dcrtcp.lib"
+// MOVE TO HERE to use LED code // BUILD 2106
+#use X_SER_NETSTATUS_B2203_B2206BETA.LIB // UPDATE TO USE B2203BETA LIB BUILD
+
+// #define DHCP_CLASS_ID "RabbitRCM37XX-TCPIP:Rabbit:Test:1.0.0"
+// #define DHCP_CLASS_ID "Rabbit-TCPIP:Z-World:DHCP-Test:1.2.0"
+// DEFINE A CLASS JUST FOR COLBY INSTRUMENTS MACHINE TYPES
+#define DHCP_CLASS_ID "Colby-TCPIP:Colby-Instruments:X-SERIES:1.0.0"
+
+#define ENET_PORT 7777       // Port that service runs on
+#define ENET_DHCP_TIMEOUT 10 // DHCP timeout is 10 seconds
+
+#define ENET_AUTOIP_IP aton("192.168.100.8")
+#define ENET_AUTOIP_NETMASK aton("255.255.0.0")
+#define ENET_AUTOIP_GATEWAY aton("192.168.100.1")
+
+#define ENET_ADDR_MODE_DHCP 2
+#define ENET_ADDR_MODE_AUTOIP 1
+#define ENET_ADDR_MODE_STATIC 0
+
+// 09.26.17
+static int g_ENETAddrMode;
+unsigned int g_ENET_PORT; // global, contains current PORT id  added 1-3-05
+int g_ENETactiveSession;  // global, contains active session id
+
+#define ENET_STATE_CONFIG 0
+#define ENET_STATE_STARTING 1
+#define ENET_STATE_INIT 2
+#define ENET_STATE_RUN 3
+#define ENET_STATE_LOSTLINK 4
+#define ENET_STATE_LINKDOWN 5
+#define ENET_STATE_GOTLINK 6
+
+static int g_ENETState;
+
+#define ENET_SESSION_STATE_CLOSED 0
+#define ENET_SESSION_STATE_LISTENING 1
+#define ENET_SESSION_STATE_CONNECTED 2
+#define ENET_SESSION_STATE_CLOSING 3
+
+struct ENET_session_struct_t
+{
+    char session_state;
+    tcp_Socket socket;
+    unsigned long socket_timer;
+};
+
+static struct ENET_session_struct_t g_ENETsessions[ENET_MAX_CONNECTIONS];
+static char g_ENETAutoDropOldConnections;
+
+#ifdef WIN32
+typedef void (*linkCallbackT)(int linkUp);
+#else
+typedef void (*linkCallbackT)();
+#endif
+
+linkCallbackT g_linkCallbackFunc;
+// static int g_haveIPConflict;
+
+static int g_ENET_IPConflict; // 09.26.17
+
+void ENET_Init(char UseDHCP, longword my_ip, longword my_netmask, longword my_default_gateway, char _AutoDrop);
+/*** EndHeader */
+
+void ENET_Init(char UseDHCP, longword my_ip, longword my_netmask, longword my_default_gateway, char _AutoDrop)
+{
+    auto longword raddr;
+    auto int i;
+
+    g_ENETState = ENET_STATE_CONFIG;
+    g_ENET_IPConflict = FALSE;
+    g_linkCallbackFunc = NULL;
+    g_ENETactiveSession = -1;
+    // g_ENETAutoDropOldConnections = ENET_DEFAULT_AUTODROPCONNECTIONS;  ORIGINAL 03.16.15
+    g_ENETAutoDropOldConnections = _AutoDrop;
+
+    sock_init(); // Initialize the Socket Connection
+
+#ifdef DHCP_SEND_HOSTNAME
+    g_RetCode = sethostname(g_DynamicMemHostName); // 01.24.21
+#endif
+
+#ifdef NET_STATUS
+    NETSTAT_init();
+#endif
+
+    if (UseDHCP)
+    {
+        g_ENETAddrMode = ENET_ADDR_MODE_DHCP; // 09.26.17
+        ifconfig(IF_ETH0,
+                 IFS_DOWN,
+                 IFS_DHCP, true, // Use DHCP
+                 IFS_ICMP_CONFIG, false,
+                 IFS_DHCP_TIMEOUT, ENET_DHCP_TIMEOUT,
+                 IFS_DHCP_FALLBACK, 1, // Allow use of fallbacks to static configuration
+                 IFS_IPADDR, my_ip,
+                 // 11.11.21 BUILD2112_RD102121_RD111121
+                 // 11.11.21 DO NOT SET NETMASK OR GATEWAY ADDR IN DHCP (GET THESE FROM ROUTER)
+                 // 11.11.21 IFS_NETMASK, my_netmask,
+                 // 11.11.21 IFS_ROUTER_SET, my_default_gateway,
+                 IFS_DHCP_DOMAIN, 0, // Do not use domain 01.14.21
+                 IFS_END);
+    }
+    else
+    {
+        g_ENETAddrMode = ENET_ADDR_MODE_STATIC;
+        ifconfig(IF_ETH0,
+                 IFS_DOWN,        // ADDED 042405
+                 IFS_DHCP, false, // DHCP is FALSE
+                 IFS_ICMP_CONFIG, false,
+                 IFS_IPADDR, my_ip,
+                 IFS_NETMASK, my_netmask,
+                 IFS_ROUTER_SET, my_default_gateway,
+                 IFS_DHCP_DOMAIN, 0, // Do not use domain 01.14.21
+                 IFS_END);
+    }
+
+    // Interface will be brought up by ENET_Handler().
+
+    // 03.06.08
+    // initialize g_ENETsessions[] AT STARTUP
+    for (i = 0; i < ENET_MAX_CONNECTIONS; i++)
+    {
+        g_ENETsessions[i].session_state = ENET_SESSION_STATE_CLOSING;
+        g_ENETsessions[i].socket_timer = MS_TIMER + ENET_GRACEFULCLOSE_TIMEOUT_MS;
+    }
+}
+
+/*** BeginHeader ENET_CheckmsTimeout */
+int ENET_CheckmsTimeout(unsigned long mstimeout);
+/*** EndHeader */
+nodebug int ENET_CheckmsTimeout(unsigned long mstimeout)
+{
+    return ((long)(MS_TIMER - mstimeout)) >= 0;
+}
+
+/*** BeginHeader ENET_IPConflict */
+longword ENET_IPConflict(arp_Header *in);
+/*** EndHeader */
+longword ENET_IPConflict(arp_Header *in)
+{
+    g_ENET_IPConflict = TRUE;
+    // 03.06.08 REMOVE PRINTF
+    // printf("Have IP conflict!\n");
+    return 0xFFFFFFFF;
+}
+
+/*** BeginHeader ENET_HaveIPConflict */
+int ENET_HaveIPConflict(void);
+/*** EndHeader */
+
+int ENET_HaveIPConflict(void)
+{
+    return g_ENET_IPConflict;
+}
+
+/*** BeginHeader ENET_Reconfigure */
+void ENET_Reconfigure(char UseDHCP, longword my_ip, longword my_netmask, longword my_default_gateway);
+/*** EndHeader */
+void ENET_Reconfigure(char UseDHCP, longword my_ip, longword my_netmask, longword my_default_gateway)
+{
+    auto longword raddr;
+    auto int i;
+    auto int ReturnCode;
+
+    for (i = 0; i < ENET_MAX_CONNECTIONS; i++)
+    {
+        // Close all sockets.
+        if (sock_established(&g_ENETsessions[i].socket))
+        {
+            sock_abort(&g_ENETsessions[i].socket);
+            g_ENETsessions[i].session_state = ENET_SESSION_STATE_CLOSED;
+        }
+    }
+
+    // Reset state machine
+    g_ENETState = ENET_STATE_CONFIG;
+    // g_haveIPConflict = FLASE;
+
+#ifdef DHCP_SEND_HOSTNAME
+    g_RetCode = sethostname(g_DynamicMemHostName); // added 01.24.21
+#endif
+
+    if (UseDHCP)
+    {
+        g_ENETAddrMode = ENET_ADDR_MODE_DHCP;
+        ReturnCode = ifconfig(IF_ETH0,
+                              IFS_DOWN,
+                              IFS_DHCP, true, // Use DHCP
+                              IFS_ICMP_CONFIG, false,
+                              IFS_DHCP_TIMEOUT, ENET_DHCP_TIMEOUT,
+                              IFS_DHCP_FALLBACK, 1, // Allow use of fallbacks to static configuration
+                              IFS_IPADDR, my_ip,
+                              // 11.11.21 BUILD2112_RD102121_RD111121
+                              // 11.11.21 DO NOT SET NETMASK OR GATEWAY ADDR IN DHCP (GET THESE FROM ROUTER)
+                              // 11.11.21 IFS_NETMASK, my_netmask,
+                              // 11.11.21 IFS_ROUTER_SET, my_default_gateway,
+                              IFS_DHCP_DOMAIN, 0, // Do not use domain 01.14.21
+                              IFS_END);
+    }
+    else
+    {
+        g_ENETAddrMode = ENET_ADDR_MODE_STATIC;
+        ReturnCode = ifconfig(IF_ETH0,
+                              IFS_DOWN,
+                              IFS_DHCP, false, // Static ... no DHCP
+                              IFS_ICMP_CONFIG, false,
+                              IFS_IPADDR, my_ip,
+                              IFS_NETMASK, my_netmask,
+                              IFS_ROUTER_SET, my_default_gateway,
+                              IFS_DHCP_DOMAIN, 0, // Do not use domain 01.14.21
+                              IFS_END);
+    }
+    // Interface will be brought up by ENET_Handler().
+}
+
+/*** BeginHeader ENET_GetIP */
+longword ENET_GetIP(void);
+/*** EndHeader */
+longword ENET_GetIP(void)
+{
+    longword t_ip;
+    if (ifpending(IF_ETH0) != IF_UP)
+        return 0;
+    ifconfig(IF_ETH0,
+             IFG_IPADDR, &t_ip,
+             IFS_END);
+    return t_ip;
+}
+
+// 09.26.17
+/*** BeginHeader ENET_GetNetmask */
+longword ENET_GetNetmask(void);
+/*** EndHeader */
+longword ENET_GetNetmask(void)
+{
+    longword mask;
+    if (ifpending(IF_ETH0) != IF_UP)
+    {
+        return 0;
+    }
+    ifconfig(IF_ETH0,
+             IFG_NETMASK, &mask,
+             IFS_END);
+    return mask;
+}
+
+/*** BeginHeader ENET_GetGateway */
+longword ENET_GetGateway(void);
+/*** EndHeader */
+longword ENET_GetGateway(void)
+{
+    longword gw;
+    if (ifpending(IF_ETH0) != IF_UP)
+    {
+        return 0;
+    }
+    ifconfig(IF_ETH0,
+             IFG_ROUTER_DEFAULT, &gw,
+             IFS_END);
+    return gw;
+}
+
+/*** BeginHeader ENET_GetDHCP */
+int ENET_GetDHCP(void);
+/*** EndHeader */
+int ENET_GetDHCP(void)
+{
+    return (ENET_ADDR_MODE_DHCP == g_ENETAddrMode);
+}
+
+/*** BeginHeader ENET_GetAutoIP */
+int ENET_GetAutoIP(void);
+/*** EndHeader */
+int ENET_GetAutoIP(void)
+{
+    return (ENET_ADDR_MODE_AUTOIP == g_ENETAddrMode);
+}
+
+// 09.26.17
+
+/*** BeginHeader ENET_DropConnections */
+void ENET_DropConnections(int dontdrop);
+/*** EndHeader */
+void ENET_DropConnections(int dontdrop)
+{
+    auto int i;
+
+    for (i = 0; i < ENET_MAX_CONNECTIONS; i++)
+    {
+        if (i != dontdrop)
+        {
+            if (sock_established(&g_ENETsessions[i].socket))
+            {
+                // 03.06.08 REMOVE PRINTF
+                // printf("Dropping established socket.\n");
+                sock_close(&g_ENETsessions[i].socket);
+                g_ENETsessions[i].session_state = ENET_SESSION_STATE_CLOSED;
+                g_ENETsessions[i].socket_timer = MS_TIMER + ENET_GRACEFULCLOSE_TIMEOUT_MS;
+            }
+        }
+    }
+}
+
+/*** BeginHeader ENET_Handler */
+void ENET_Handler(void);
+/*** EndHeader */
+
+void ENET_Handler(void)
+{
+    auto int i;
+    auto int dhcp_on, dhcp_ok; // 09.26.17
+    auto struct ENET_session_struct_t *tsession;
+    char tbuffer[100];
+
+    tcp_tick(NULL);
+
+// BUILD 2106
+#ifdef NET_STATUS
+    NETSTAT_tick(0);
+#endif
+
+    switch (g_ENETState)
+    {
+
+    case ENET_STATE_CONFIG:
+        if (pd_havelink(IF_ETH0))
+        {
+            ifup(IF_ETH0);
+            g_ENETState = ENET_STATE_STARTING;
+        }
+        else
+        {
+            g_ENETState = ENET_STATE_LOSTLINK;
+        }
+        break;
+
+    case ENET_STATE_STARTING:
+        if (pd_havelink(IF_ETH0))
+        {
+            switch (ifpending(IF_ETH0))
+            {
+            case IF_DOWN:
+                // g_ENETState = ENET_STATE_CONFIG;
+                // 09.26.17
+                // Check for DHCP failure
+                ifconfig(IF_ETH0,
+                         IFG_DHCP, &dhcp_on,
+                         IFG_DHCP_OK, &dhcp_ok,
+                         IFS_END);
+                if (dhcp_on && !dhcp_ok)
+                {
+                    // Reconfigure with static AutoIP
+                    ENET_Reconfigure(0, ENET_AUTOIP_IP, ENET_AUTOIP_NETMASK, ENET_AUTOIP_GATEWAY);
+                    g_ENETAddrMode = ENET_ADDR_MODE_AUTOIP;
+                }
+                // 09.26.17
+                break;
+            case IF_COMING_UP:
+            case IF_COMING_DOWN:
+                break;
+            case IF_UP:
+                g_ENETState = ENET_STATE_INIT;
+                break;
+            }
+        }
+        else
+        {
+            g_ENETState = ENET_STATE_LOSTLINK;
+        }
+        break;
+
+    case ENET_STATE_INIT:
+        if (pd_havelink(IF_ETH0))
+        {
+            // 09.26.17
+            // Check for DHCP failure
+            ifconfig(IF_ETH0,
+                     IFG_DHCP, &dhcp_on,
+                     IFG_DHCP_OK, &dhcp_ok,
+                     IFS_END);
+            if (dhcp_on && !dhcp_ok)
+            {
+                // Reconfigure with static AutoIP
+                ENET_Reconfigure(0, ENET_AUTOIP_IP, ENET_AUTOIP_NETMASK, ENET_AUTOIP_GATEWAY);
+                g_ENETAddrMode = ENET_ADDR_MODE_AUTOIP;
+            }
+            else
+            {
+                // 09.26.17
+                g_ENETState = ENET_STATE_RUN;
+            }
+        }
+        else
+        {
+            g_ENETState = ENET_STATE_LOSTLINK;
+        }
+        break;
+
+    case ENET_STATE_RUN:
+        if (pd_havelink(IF_ETH0))
+        {
+
+            for (i = 0; i < ENET_MAX_CONNECTIONS; i++)
+            {
+                tsession = &g_ENETsessions[i];
+
+                switch (tsession->session_state)
+                {
+
+                case ENET_SESSION_STATE_CLOSED:
+                    // 03.06.08 REMOVE PRINTF
+                    // printf("Socket listening on port %d.\n",g_ENET_PORT);
+                    tcp_listen(&tsession->socket, g_ENET_PORT, 0, 0, NULL, 0);
+                    tsession->session_state = ENET_SESSION_STATE_LISTENING;
+                    break;
+
+                case ENET_SESSION_STATE_LISTENING:
+                    if (sock_established(&tsession->socket) || (sock_bytesready(&tsession->socket) != -1))
+                    {
+                        // 03.06.08 REMOVE PRINTF
+                        // printf("Got new connection.\n");
+                        tcp_set_ascii(&tsession->socket);
+                        tsession->session_state = ENET_SESSION_STATE_CONNECTED;
+                        if (g_ENETAutoDropOldConnections)
+                        {
+                            // 03.06.08 REMOVE PRINTF
+                            // printf("Dropping old connections.\n");
+                            ENET_DropConnections(i);
+                        }
+                    }
+                    break;
+
+                case ENET_SESSION_STATE_CONNECTED:
+                    if (sock_bytesready(&tsession->socket) >= 0)
+                    {
+                        if (INSTRUMENT.stateTCPIP_DATA_IN == FALSE)
+                        {
+                            sock_gets(&tsession->socket, BUFFERS.tcpipBUFFER_IN, sizeof(BUFFERS.tcpipBUFFER_IN));
+                            g_ENETactiveSession = i;
+                            if (strlen(BUFFERS.tcpipBUFFER_IN) > 0)
+                            {
+                                INSTRUMENT.stateTCPIP_DATA_IN = TRUE;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        /* If sock_bytesready() returned a negative number, there was an error. See
+                            if the socket was closed. */
+                        if (!sock_established(&tsession->socket))
+                        {
+                            // 03.06.08 REMOVE PRINTF
+                            // printf("Dropping closed socket.\n");
+                            sock_close(&tsession->socket);
+                            tsession->session_state = ENET_SESSION_STATE_CLOSING;
+                            tsession->socket_timer = MS_TIMER + ENET_GRACEFULCLOSE_TIMEOUT_MS;
+                        }
+                    }
+
+                    break;
+
+                case ENET_SESSION_STATE_CLOSING:
+                    if (!sock_alive(&tsession->socket))
+                    {
+                        // 03.06.08 REMOVE PRINTF
+                        // printf("Socket closed properly.\n");
+                        /* The socket has been properly closed */
+                        tsession->session_state = ENET_SESSION_STATE_CLOSED;
+                    }
+                    else if (ENET_CheckmsTimeout(tsession->socket_timer))
+                    {
+                        /* The socket could not be properly closed. Force it closed with an abort. */
+                        // 03.06.08 REMOVE PRINTF
+                        // printf("Socket did not close properly & was forced closed.\n");
+                        sock_abort(&tsession->socket);
+                        tsession->session_state = ENET_SESSION_STATE_CLOSED;
+                    }
+                    else if (sock_bytesready(&tsession->socket) >= 0)
+                    {
+                        /* Get and discard any data received after trying to close the socket.
+                            We have to clean it out before it will properly close. */
+                        sock_gets(&tsession->socket, tbuffer, sizeof(tbuffer));
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            g_ENETState = ENET_STATE_LOSTLINK;
+        }
+        break;
+
+    case ENET_STATE_LOSTLINK:
+#ifdef ENET_LINK_CALLBACK
+        // call notification callback
+        if (g_linkCallbackFunc)
+            g_linkCallbackFunc(FALSE);
+#endif
+        // close all sockets.
+        for (i = 0; i < ENET_MAX_CONNECTIONS; i++)
+        {
+            sock_abort(&g_ENETsessions[i].socket);
+            g_ENETsessions[i].session_state = ENET_SESSION_STATE_CLOSED;
+        }
+        ifdown(IF_ETH0);
+        g_ENETState = ENET_STATE_LINKDOWN;
+        break;
+    case ENET_STATE_LINKDOWN:
+        if (pd_havelink(IF_ETH0))
+        {
+            g_ENETState = ENET_STATE_GOTLINK;
+        }
+        break;
+    case ENET_STATE_GOTLINK:
+#ifdef ENET_LINK_CALLBACK
+        // call notification callback
+        if (g_linkCallbackFunc)
+            g_linkCallbackFunc(TRUE);
+#endif
+        g_ENETState = ENET_STATE_CONFIG;
+        break;
+    default:
+        g_ENETState = ENET_STATE_INIT;
+        break;
+    }
+}
+
+/*** BeginHeader ENET_RegisterLinkStatusCallback */
+void ENET_RegisterLinkStatusCallback(linkCallbackT callbackFunc);
+/*** EndHeader */
+
+void ENET_RegisterLinkStatusCallback(linkCallbackT callbackFunc)
+{
+    g_linkCallbackFunc = callbackFunc;
+}
+
+/*** BeginHeader ENET_AutoDropOldConnections */
+void ENET_AutoDropOldConnections(char autodrop);
+/*** EndHeader */
+void ENET_AutoDropOldConnections(char autodrop)
+{
+    g_ENETAutoDropOldConnections = autodrop;
+}
+
+/*** BeginHeader ENET_DropAllConnections */
+void ENET_DropAllConnections(void);
+/*** EndHeader */
+void ENET_DropAllConnections(void)
+{
+    ENET_DropConnections(-1);
+}
+
+/*** BeginHeader ENET_Send */
+void ENET_Send(int session, char *data, int len);
+/*** EndHeader */
+
+void ENET_Send(int session, char *data, int len)
+{
+    if ((session >= 0) && (session < ENET_MAX_CONNECTIONS))
+    {
+        sock_write(&g_ENETsessions[session].socket, data, len);
+    }
+}
+
+/*** BeginHeader */
+#endif // ENET_LIB
+/*** EndHeader */

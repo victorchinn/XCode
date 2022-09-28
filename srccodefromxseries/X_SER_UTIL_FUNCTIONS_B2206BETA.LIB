@@ -1,0 +1,173 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*	File:			UTILITY FUNCTIONS.LIB
+*	Desc:			This file contains the RAMTEX DISPLAY DRIVER FILES
+*	Proj:			tft oled with DEVELOPMENT BOARD
+*	Date:			12.11.21
+*	Auth:			Victor Chinn
+*
+END DESCRIPTION ***************************************************************/
+
+// 12.11.21 *****************************************************************
+// 12.11.21 *****************************************************************
+// 12.11.21 *****************************************************************
+
+// 03.15.22 RENAME TO X_SER_UTIL_FUNCTIONS_B2203BETA.LIB
+//
+
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+
+/*** BeginHeader */
+#ifndef _UTIL_FUNCTIONS_LIB
+#define _UTIL_FUNCTIONS_LIB
+/*** EndHeader */
+
+
+/*** BeginHeader
+ultostr,
+reverse,
+intToStr,
+ConvertFtoA,
+DrawBar
+*/
+
+//*************************** User Functions ***************************//
+char *ultostr(unsigned long value, char *ptr, int base);
+void reverse(char* str, int len);
+int intToStr(int x, char str[], int d);
+void ConvertFtoA(float n, char* res, int afterpoint);
+void DrawBar();
+/*** EndHeader */
+
+//------------------------------ Definitions ---------------------------------//
+
+// DEFINES GO HERE ...
+
+char *ultostr(unsigned long value, char *ptr, int base)
+{
+  unsigned long t = 0, res = 0;
+  unsigned long tmp = value;
+  int count = 0;
+
+  if (NULL == ptr)
+  {
+    return NULL;
+  }
+
+  if (tmp == 0)
+  {
+    count++;
+  }
+
+  while(tmp > 0)
+  {
+    tmp = tmp/base;
+    count++;
+  }
+
+  ptr += count;
+  *ptr = '\0';
+  do
+  {
+    res = value - base * (t = value / base);
+    if (res < 10)
+    {
+      * -- ptr = '0' + res;
+    }
+    else if ((res >= 10) && (res < 16))
+    {
+        * --ptr = 'A' - 10 + res;
+    }
+  } while ((value = t) != 0);
+
+  return(ptr);
+}
+
+// Reverses a string 'str' of length 'len'
+void reverse(char* str, int len)
+{
+    int i = 0, j = len - 1, temp;
+    while (i < j) {
+        temp = str[i];
+        str[i] = str[j];
+        str[j] = temp;
+        i++;
+        j--;
+    }
+}
+
+// Converts a given integer x to string str[].
+// d is the number of digits required in the output.
+// If d is more than the number of digits in x,
+// then 0s are added at the beginning.
+int intToStr(int x, char str[], int d)
+{
+    int i = 0;
+    while (x) {
+        str[i++] = (x % 10) + '0';
+        x = x / 10;
+    }
+
+    // If number of digits required is more, then
+    // add 0s at the beginning
+    while (i < d)
+        str[i++] = '0';
+
+    reverse(str, i);
+    str[i] = '\0';
+    return i;
+}
+// Converts a floating-point/double number to a string.
+void ConvertFtoA(float n, char* res, int afterpoint)
+{
+    // Extract integer part
+    int ipart = 0; // = (int)n;
+
+    // Extract floating part
+    float fpart = 0; // = n - (float)ipart;
+
+    // convert integer part to string
+    int i = 0; // = intToStr(ipart, res, 0);
+
+    ipart = (int) n;
+    fpart = ipart;  // 12.11.21 force int to a float
+    //fpart = n - ((float) ipart);
+    fpart = n - ipart;  // 12.11.21 force int to a float
+
+
+    //i = intToStr(ipart, res, 0);
+
+
+    // check for display option after point
+    if (afterpoint != 0)
+    {
+        res[i] = '.'; // add dot
+
+        // Get the value of fraction part upto given no.
+        // of points after dot. The third parameter
+        // is needed to handle cases like 233.007
+        fpart = fpart * pow(10, afterpoint);
+        intToStr((int)fpart, res + i + 1, afterpoint);
+    }
+
+
+    return;
+}
+
+void DrawBar()
+{
+	#if defined(TFT_ATTACHED)
+        gcrectangle(CHX_BAR_X0_UL-1,CHX_BAR_Y0_UL-1,CHX_BAR_X0_LR+1,CHX_BAR_Y0_LR+1,G_WHITE);
+        gsetcolorb(G_BLACK);
+        gfillvp(CHX_BAR_X0_UL,CHX_BAR_Y0_UL,CHX_BAR_X0_LR,CHX_BAR_Y0_LR,0x0000);
+        gsetcolorb(G_GREEN);
+    #endif
+}
+
+// end of code.
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

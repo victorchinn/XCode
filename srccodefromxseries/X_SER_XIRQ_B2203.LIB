@@ -1,0 +1,177 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*	File:		XIRQ_NEW_PCB.LIB
+*	Desc:		Contains an external interrupt API. XIRQ is PE4, XIRQ0B
+*	Proj:		Colby Delay Line / Pin Diode Controller
+*	Date:		September, 2005
+*	Auth:		Scott Nortman, MindTribe Product Engineering, Inc. Palo Alto, CA
+*
+*	Copyright (c) 2005 Colby Instruments, LLC, Bellevue, WA
+*
+*	REVISION HISTORY
+*
+*	Current Version:	v0.2.0
+*
+*	WHEN		WHO				WHAT
+*	----------------------------------------------------------------------------
+*	9/2005	S. Nortman		Initiated file.
+*	9/12/05	S. Nortman		Changed xirq to PE4, INT0B
+*
+*
+END DESCRIPTION ***************************************************************/
+
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+
+// 07.20.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+
+// 07.26.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 08.17.21 UPDATES TO HWIO_REL APIS, ROUND DOWN BUG AT LAST SECTION (SECTION NOW TURNS OFF FOR TROBONE TO DO REMAINDER)
+
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+
+/*** BeginHeader */
+#ifndef _XIRQ_LIB
+#define _XIRQ_LIB
+/*** EndHeader */
+
+/*** BeginHeader */
+#define _XIRQ_PRIORITY 1                  //Interrupt priority
+#define _XIRQ_EDGE_NONE 0x00              //Bit config for no edge DISABLED
+#define _XIRQ_EDGE_RISING 0x02            //Bit config. for rising edge
+#define _XIRQ_EDGE_FALLING 0x01           //Bit config for falling edge
+#define _XIRQ_EDGE_BOTH 0x03              //Bit config for both edges
+#define _XIRQ_EDGE_TYPE _XIRQ_EDGE_RISING //Set for rising edge
+
+//Static file scope variables
+static void (*xirq0CallbackPtr)(); //Static callback function
+/*** EndHeader */
+
+/*** BeginHeader XIRQ0Init */
+/*------------------------------------------------------------------------------
+*	Desc:   Called to initialize the external interrupt #0B.  Also allows user
+*			to set a callback function which is executed every time ISR runs.
+*			This function operates on external interrupt 0.
+*	Args:	void (*CallbackPtr)(), a pointer to a void function which is called
+*			when the external interrupt ISR runs.
+*	Ret:	None.
+*	Prereq:	None.
+*	Globals: xirq0CallbackPtr
+*	Notes:  None.
+*
+------------------------------------------------------------------------------*/
+void XIRQ0Init(void (*CallbackPtr)());
+/*** EndHeader */
+void XIRQ0Init(void (*CallbackPtr)())
+{
+
+    //Local variables
+    unsigned char temp;
+
+    //Initialize variables
+    temp = 0;
+
+    //Set PE4 as an input
+    BitWrPortI(PEDDR, &PEDDRShadow, 0, 4);
+
+    //Set static function pointer to passed argument
+    xirq0CallbackPtr = CallbackPtr;
+
+    //Set interrupt vector
+    SetVectExtern3000(0, XIRQ0Routine);
+
+    //Set temp bits for init. call
+    temp = (g_XIRQ_EDGE_TYPE << 4) | (_XIRQ_EDGE_NONE << 2) | _XIRQ_PRIORITY; //10.29.08
+
+    //Set interrupt edge and priority
+    WrPortI(I0CR, &I0CRShadow, temp);
+
+} //end XIRQ0Init
+
+/*** BeginHeader XIRQ0OnOff */
+/*------------------------------------------------------------------------------
+*	Desc:   Enables / disables external interrupt.
+*	Args:	unsigned char OnOff, a flag indicating if the interrupt is or is not
+*			enabled.  1 = Enabled, 0 = Disabled
+*	Ret:	None.
+*	Prereq:	None.
+*	Globals: None.
+*	Notes   Changes the value in the I1CR.
+------------------------------------------------------------------------------*/
+void XIRQ0OnOff(unsigned char OnOff);
+/*** EndHeader XIRQ1 */
+void XIRQ0OnOff(unsigned char OnOff)
+{
+
+    //Set bits as needed to enable / disable interrupt
+    //code supplied by Jerry ...
+
+    if (OnOff)
+    {
+        //Enable the interrupt
+        WrPortI(I0CR, &I0CRShadow, I0CRShadow | _XIRQ_PRIORITY); //Write value to register
+    }                                                            //end if
+
+    else
+    {
+        //Disable interrupt
+        WrPortI(I0CR, &I0CRShadow, I0CRShadow & 0xFC); //Write value to register
+    }                                                  //end else
+
+} // end XIRQ0OnOff
+
+/*** BeginHeader XIRQ0Routine */
+/*------------------------------------------------------------------------------
+*	Desc:   Interrupt service routine (ISR) for external interrupt 0.
+*	Args:	None.
+*	Ret:	None.
+*	Prereq:	InitXIRQ must be called.
+*	Globals: xirq0CallbackPtr
+*	Notes   Once configured for operation, this ISR will get called when the
+*           appropriate edge is applied to the signal pin.
+------------------------------------------------------------------------------*/
+nodebug root interrupt void XIRQ0Routine(void);
+/*** EndHeader */
+nodebug root interrupt void XIRQ0Routine(void)
+{
+
+#ifdef PDM100ACODE
+    //06.06.08 don't do callback if haven't handled it already for PDM-100A code
+
+    if (!g_INT_TRIGGERED)
+    {
+        g_INT_TRIGGERED = TRUE;
+#endif
+
+        //Execute Callback
+        (*xirq0CallbackPtr)();
+
+#ifdef PDM100ACODE
+        g_NUM_EXT_HW_DETECTED++;
+    }
+#endif
+
+} //end XIRQ0Routine
+
+/*** BeginHeader */
+#endif // #ifndef _XIRQ_LIB
+       /*** EndHeader */

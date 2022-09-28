@@ -1,0 +1,375 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*   File:           RAMTEX.LIB
+*   Desc:           This file contains the RAMTEX DISPLAY DRIVER FILES
+*   Proj:           tft oled with DEVELOPMENT BOARD
+*   Date:           12.11.21
+*   Auth:           Victor Chinn
+*
+END DESCRIPTION ***************************************************************/
+
+// 12.11.21 *****************************************************************
+// 12.11.21 *****************************************************************
+// 12.11.21 *****************************************************************
+
+// RENAME DEV_BOARD.LIB TO OLED_HW.LIB
+
+#include <stdint.h>
+#include <stdbool.h>
+
+/*** BeginHeader */
+#ifndef _BASE_FUNCTIONS_LIB
+#define _BASE_FUNCTIONS_LIB
+/*** EndHeader */
+
+
+/*** BeginHeader
+TFT_OLED_SET,
+SPI_Write_TFT_OLED,
+Init_PORTS,
+TFT_ToLargeFontString,
+TFT_ClearTextField,
+TFT_GPutsToDelayTextField,
+TFT_ShowBarPercentage,
+TFT_DrawCHX_Units,
+TFT_UpdateProgressBar
+*/
+
+//*************************** User Functions ***************************//
+void TFT_OLED_SET(char _PinName, char _Value);
+void SPI_Write_TFT_OLED(char d);
+void Init_PORTS(void);
+void TFT_ToLargeFontString(char _InString[]);
+void TFT_ClearTextField(int _Viewport, int _BackGroundColor, int _X, int _Y, int _WidthX, int _HeightY, int _FillPattern);
+void TFT_GPutsToDelayTextField(int _ViewPort, int _X, int _Y, int _Foreground, int _Background, char *_DisplayLine);
+void TFT_ShowBarPercentage(int _ViewPort, float _Percentage, int _BorderColor, int _BarColor);
+void TFT_DrawCHX_Units(int _ChannelNumber, int _PS_UNITS);
+void TFT_UpdateProgressBar(int _Viewport, int _Color, int _LowLimit, int HighLimit);
+/*** EndHeader */
+
+//------------------------------ Definitions ---------------------------------//
+
+// DEFINES GO HERE ...
+
+/**************************************************************************/
+/*!
+  @brief  Set TFT PIN to VALUE
+  @param Pin Name
+  @param value - logic high or low
+*/
+/**************************************************************************/
+
+void TFT_OLED_SET(char _PinName, char _Value) {
+    BitWrPortI(PADR, &PADRShadow, _Value, _PinName);
+    //printf("tft_set %i %i ",_PinName,_Value);
+}
+
+void SPI_Write_TFT_OLED(char d) {
+    char _data;
+    _data = d;
+    SPIWrite(&_data,1);
+    //printf("SPIWrite 0x%02x\r\n",d);
+}
+void Init_PORTS(void)
+{
+    /*  Desc:       Initializes Parallel Port A
+*   FOR HW3VER1:
+*   PA0 is the SR LOAD BARGRAPH     -- CONNECTED TO PE4 PIN # 27
+*   PA1 is the SR CLOCK BARGRAPH    -- CONNECTED TO PF5 PIN # 18
+*   PA2 is the SR_DATA BARGRAPH     -- CONNECTED TO PC1 PIN # 22
+*   PA5 is latch for bar graph
+*/
+
+    // FOR TFT DISPLAY
+    // PA0 IS CHIP SELECT AS OUTPUT
+    // PA4 IS RESET AS OUTPUT
+    // PCO IS MOSI MICROPROCESSOR OUT SERIAL IN
+    // PD0 IS SERIAL CLOCK
+
+    // SETUP PARALLEL PORT A AS ALL OUTPUTS
+    WrPortI(SPCR, &SPCRShadow, 0x84); // HW3V1
+
+    // SET ALL LINES TO LOW
+
+    BitWrPortI(PADR, &PADRShadow, LOW, PA0); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA1); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA2); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA3); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA4); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA5); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA6); // HW3V1 // LOW
+    BitWrPortI(PADR, &PADRShadow, LOW, PA7); // HW3V1 // LOW
+
+    // PARALLEL PORT C          PCDDR           PCFR
+    //---------------------------------------------------------------------
+    // PC7                      0 INPUT         0 NORMAL
+    // PC6                      1 OUTPUT        0 NORMAL
+    // PC5   SERIAL PORT B RX   0 INPUT         0 1NORMAL   // FROM RS232 SERIAL-B
+    // PC4   SERIAL PORT B TX   1 OUTPUT        1 ALT       // TO RS232 SERIAL-B
+    // PC3   SERIAL PORT C RX   0 INPUT         0 NORMAL    // FROM MOTOR
+    // PC2   SERIAL PORT C TX   1 OUTPUT        1 ALT       // TO MOTOR
+    // PC1                      0 INPUT         0 NORMAL
+    // PC0   SERIAL D REL DATA  1 OUTPUT        1 ALT       // TXD FOR SPI OUTPUT MOSI
+    //---------------------------------------------------------------------
+
+    // Port C 6,4,2,0 : used as outputs. (0b01010101 = 0x55)
+    // BIT 6 used as OUTPUT for serial debugging
+    WrPortI(PCDDR, &PCDDRShadow, PCDDRShadow | 0x55);
+
+    // PCALR 0bxx00xx00
+    WrPortI(PCALR, &PCALRShadow, PCALRShadow | 0x00);
+
+    // PCAHR 0bxxxxxx00
+    WrPortI(PCAHR, &PCAHRShadow, PCAHRShadow | 0x00);
+
+    // PCFR  0b01010101 PORT C FUNCTION REGISTER
+    WrPortI(PCFR, &PCFRShadow, PCFRShadow | 0x15);
+
+    // SERIAL PORT D
+    // USES PC0 (NORMAL) FOR TXD TO REL DATA
+    // USES PD0 (ALT) FOR SERIAL DATA CLOCK TO REL
+    // SERIAL D INPUT RECEIVER IS DISABLED (NOT USED)
+    // SDCR  0b00110000
+    WrPortI(SDCR, &SDCRShadow, SDCRShadow | 0x30);
+
+    // PARALLEL PORT D                  PDFR
+    //---------------------------------------------------------------------
+    // PD7
+    // PD6
+    // PD5
+    // PD4
+    // PD3
+    // PD2
+    // PD1  USE AS INTERRUPT    INPUT I1CR
+    // PD0  SERIAL D REL CLOCK  OUTPUT  ALT
+    //---------------------------------------------------------------------
+
+    // Port D 1 : used as output (0b00000001 = 0x01)
+    // WrPortI(PDDDR, &PDDDRShadow, PDDDRShadow | 0x01);
+
+    // 04.30.21
+    // PD1 : use as input for interrupt (0b00000000 = 0x00)
+    // PD0 : USE AS output for SPI CLOCK SERIAL D TXD
+    WrPortI(PDDDR, &PDDDRShadow, PDDDRShadow | 0x01); // 0 = input, 1 = output
+
+    // PDALR 0bxxxxxx00 : SERIAL CLOCK D PD0 ALT OUTPUT
+    WrPortI(PDALR, &PDALRShadow, PDALRShadow | 0x00);
+
+    // PDFR  0b00000001 PORT D FUNCTION REGISTER : BIT 0 AS ALT SERCLK OUTPUT
+    WrPortI(PDFR, &PDFRShadow, PDFRShadow | 0x01); // 0x00 function normally
+
+} /* end Init_PORTS */
+
+
+void TFT_ToLargeFontString(char _InString[])
+{
+	// converts ascii char digits to corresponding large font symbol in arial24x_code.c font table
+    int _i,_Digit,_length;
+
+    _length = strlen(_InString);
+    if (_length != 0)
+	{
+	    for (_i = 0; _i < _length ; _i++)
+	    {
+	        _Digit = _InString[_i];
+	        if ((_Digit >= 0x31) && (_Digit <= 0x39))
+	        {
+	            _InString[_i] = _Digit - 0x10;
+	        }
+	        else
+	        {
+	            switch (_Digit)
+	            {
+	                case 0x30:
+	                    _InString[_i] = 0x2A;
+	                break;
+	                case 0x2E:
+	                    _InString[_i] = 0x3B;
+	                break;
+	                default:
+	                    _InString[_i] = _Digit;
+	                break;
+	            }
+	        }
+	    }
+    }
+
+    return;
+
+}
+
+void TFT_ClearTextField(int _Viewport, int _BackGroundColor, int _X, int _Y, int _WidthX, int _HeightY, int _FillPattern)
+{
+	#if defined (TFT_ATTACHED)
+	// This is used to clear the delay setting text field with a specified background color then set the cursor text position
+
+	// THIS CODE CLEARS OUT THE TEXT FIELD FOR CH1
+	// gselvp(VIEWPORT_CH1_0);
+	// gsetcolorb(G_BLACK);
+	// gfillvp(CHX_TEXT_LINE_X0,CHX_TEXT_LINE_Y0,CHX_TEXT_LINE_X0+CHX_TEXT_LINE_W0,CHX_TEXT_LINE_Y0+CHX_TEXT_LINE_H0, 0X0000);
+
+    // THIS CODE CLEARS OUT THE TEXT FIELD FOR CH1
+    gselvp(_Viewport);
+    gsetcolorb(_BackGroundColor);
+    gfillvp(_X,_Y,_WidthX,_HeightY, _FillPattern);
+    #endif
+
+}
+
+void TFT_GPutsToDelayTextField(int _ViewPort, int _X, int _Y, int _Foreground, int _Background, char *_DisplayLine)
+{
+        // Converts Display Line to large font digits and displays onto text field for delay setting
+        //gselvp(VIEWPORT_CH1_0);
+        //gsetpos(CHX_TEXT_LINE_X0, CHX_TEXT_LINE_Y0+18);
+        //gsetcolorf(G_WHITE);
+        //gsetcolorb(G_BLACK);
+        //// CONVERT STRING TO LARGE FONT DIGITS
+        //TFT_ToLargeFontString(_TFT_DisplayLine);
+        //gputs(_TFT_DisplayLine);    // DISPLAY THE DELAY SETTING
+
+        gselvp(_ViewPort);
+        gsetpos(_X, _Y);
+        gsetcolorf(_Foreground);
+        gsetcolorb(_Background);
+        // CONVERT STRING TO LARGE FONT DIGITS
+        TFT_ToLargeFontString(_DisplayLine);
+        gputs(_DisplayLine);    // DISPLAY THE DELAY SETTING
+}
+
+void TFT_ShowBarPercentage(int _ViewPort, float _Percentage, int _BorderColor, int _BarColor)
+{
+	int _X_LineEndPoint;
+
+    gselvp(_ViewPort);	// SELECT THE CORRESPONDING VIEWPORT
+
+	// DISPLAY PERCENTAGE OF BAR
+	if (_Percentage > 1.0) _Percentage = 1.0; // BOUNDARY CHECK
+	_X_LineEndPoint = (int) (_Percentage * CHX_BAR_W);
+
+    // CREATE A RECTANGLE BAR INSIDE THE FRAME
+    gcrectangle(CHX_BAR_X_UL-1,CHX_BAR_Y_UL-1,CHX_BAR_X_LR+1,CHX_BAR_Y_LR+1,_BorderColor);
+    gsetcolorb(G_BLACK);
+    gfillvp(CHX_BAR_X_UL,CHX_BAR_Y_UL,CHX_BAR_X_LR,CHX_BAR_Y_LR,0x0000); // CLEAR
+    gsetcolorb(_BarColor);
+    gfillvp(CHX_BAR_X_UL,CHX_BAR_Y_UL,CHX_BAR_X_UL+_X_LineEndPoint,CHX_BAR_Y_LR,0x0000); // FILL
+}	// end
+
+#if defined(REMOVE_CODE)
+void TFT_ShowMotorMoveBar(int _ViewPort, int _Color)
+{
+
+    gselvp(_ViewPort);	// SELECT THE CORRESPONDING VIEWPORT
+    // CREATE A RECTANGLE BAR INSIDE THE FRAME
+    //gcrectangle(TFT_CH1_MOTOR_X_UL,TFT_CH1_MOTOR_Y_UL,TFT_CH1_MOTOR_X_LR,TFT_CH1_MOTOR_Y_LR,_Color);
+    gsetcolorb(_Color);
+    gfillvp(TFT_CH1_MOTOR_X_UL,TFT_CH1_MOTOR_Y_UL,TFT_CH1_MOTOR_X_LR,TFT_CH1_MOTOR_Y_LR,0x0000); // FILL
+}
+void TFT_UpdateMotorMoveBar(int _ViewPort, int _Color)
+{
+	int _i = 0 ;
+
+    gselvp(_ViewPort);	// SELECT THE CORRESPONDING VIEWPORT
+	gsetpos(CHX_TEXT_LINE_X,CHX_TEXT_LINE_Y+14);
+    gsetcolorf(_Color);
+    gsetcolorb(G_BLACK);
+    for (_i = 0; _i <= GLOBAL_SETTINGS.TFT_ScanLineNumber; _i++)
+    {
+    	gputs(">");
+    }
+	GLOBAL_SETTINGS.TFT_ScanLineNumber++;
+    if (GLOBAL_SETTINGS.TFT_ScanLineNumber >= 12)
+    {
+    	GLOBAL_SETTINGS.TFT_ScanLineNumber = 0;
+		gsetpos(CHX_TEXT_LINE_X,CHX_TEXT_LINE_Y+14);
+        gputs("                    "); //18 spaces to clear
+    }
+}
+#endif
+
+void TFT_DrawCHX_Units(int _ChannelNumber, int _PS_UNITS)
+{
+
+	if (_ChannelNumber == VIEWPORT_CH1)
+    {
+    	gselvp(VIEWPORT_CH1);
+    }
+    else if (_ChannelNumber == VIEWPORT_CH2)
+    {
+        gselvp(VIEWPORT_CH2);
+    }
+    else {
+        gselvp(VIEWPORT_CH1);
+    }
+
+	if (_PS_UNITS == TRUE)
+	{
+		// PS UNITS LINE 1
+        gfillvp(CHX_UNITS_X, CHX_UNITS_Y, CHX_UNITS_X + 48, CHX_UNITS_Y + 24, G_BLACK);
+        GFX_DrawBitmap(CHX_UNITS_X, CHX_UNITS_Y, PS_I_LC_48X24_ICON, 64, 24, G_WHITE);
+	}
+	else
+	{
+		// NS UNITS LINE 1
+        gfillvp(CHX_UNITS_X, CHX_UNITS_Y, CHX_UNITS_X + 48, CHX_UNITS_Y + 24, G_BLACK);
+		GFX_DrawBitmap(CHX_UNITS_X, CHX_UNITS_Y, NS_I_LC_48X24_ICON, 64, 24, G_WHITE);
+	}
+}
+
+void TFT_UpdateProgressBar(int _Viewport, int _Color, int _LowLimit, int _HighLimit)
+{
+	// _Viewport is VIEWPORT NUMBER
+    // _Progress as a percentage of CHX_BAR_W is 150
+
+    int _StartPoint = 0;
+    int _EndPoint = 0;
+
+    // IF LEFT TO RIGHT
+    // FILL FROM 0 TO _LOWLIMIT WITH GREEN
+    // FILL FROM _LOWLIMIT TO _HIGHLIMIT WITH _Color
+
+    // IF RIGHT TO LEFT
+    // FILL FROM 0 TO _LOWLIMIT WITH GREEN
+    // FILL FROM _HIGHLIMIT TO _LOWLIMIT WITH _Color
+
+    // SELECT THE VIEWPORT
+	gselvp(_Viewport);
+    gsetcolorb(G_GREEN);
+
+    _StartPoint = 0;
+    _EndPoint = _LowLimit;
+
+    if (_StartPoint < 0)
+        _StartPoint = 2;
+    if (_StartPoint > CHX_BAR_W-2)
+        _StartPoint = CHX_BAR_W-2;
+
+    if (_EndPoint < 0)
+        _EndPoint = 2;
+    if (_EndPoint > CHX_BAR_W-2)
+        _EndPoint = CHX_BAR_W-2;
+
+    gfillvp((CHX_BAR_X_UL) + _StartPoint , (CHX_BAR_Y_UL)+3, (CHX_BAR_X_UL) + _EndPoint, (CHX_BAR_Y_LR-3), 0X0000); // FILL WITH BACKGROUND COLOR
+
+    gsetcolorb(_Color);
+    _StartPoint = _LowLimit;
+    _EndPoint = _HighLimit;
+
+    if (_StartPoint < 0)
+        _StartPoint = 2;
+    if (_StartPoint > CHX_BAR_W-2)
+        _StartPoint = CHX_BAR_W-2;
+
+    if (_EndPoint < 0)
+        _EndPoint = 2;
+    if (_EndPoint > CHX_BAR_W-2)
+        _EndPoint = CHX_BAR_W-2;
+
+    gfillvp((CHX_BAR_X_UL) + _StartPoint , (CHX_BAR_Y_UL)+3, (CHX_BAR_X_UL) + _EndPoint, (CHX_BAR_Y_LR-3), 0X0000); // FILL WITH BACKGROUND COLOR
+}
+
+
+
+// end of code.
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

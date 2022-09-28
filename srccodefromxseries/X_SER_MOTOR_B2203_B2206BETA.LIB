@@ -1,0 +1,1661 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*	File		: X_SER_MOTOR.LIB
+*	Description	: Library of COMMANDS for Hybrid HARDWARE MOTOR.
+*	Project		: Colby Instruments Programmable Delay Line X SERIES
+*	Date		: MAY 17, 2021
+*				: Copyright(c) 2021 Colby Instruments, Bellevue, WA
+*	NOTES:		: Library of COMMANDS for HW3 VER 1 HARDWARE MOTOR
+
+END DESCRIPTION ***************************************************************/
+
+// BUILD 2106 ******************************************************************
+// BUILD 2106 ******************************************************************
+// BUILD 2106 ******************************************************************
+
+// CREATE THIS LIB STARTING FROM COMMANDS_B2106.LIB WHEN SPLIT INTO MOTOR_COMMANDS.LIB AND INSTRUMENT_COMMANDS.LIB
+
+// 02.15.21		SPLIT COMMANDS.LIB INTO MOTOR_COMMANDS.LIB (11 APIS) AND INST_COMMANDS.LIB (7 APIS)
+// 02.15.21		TAKE ALL 3 APIS FROM METHODS.LIB AND FACTOR INTO MOTOR_COMMANDS.LIB
+// 04.27.21		REMOVE ALL relaysetrelay since this is an XT-100 SYSTEM BOARD
+
+// 05.17.21 XT SYSTEM BUILD - RENAME OF MOTOR_COMMANDS_B2106_HW3RD0.LIB TO X_SER_MOTOR_B2109.LIB
+// 05.17.21 XT SYSTEM BUILD - RENAME OF MOTOR_COMMANDS_B2106_HW3RD0.LIB TO X_SER_MOTOR_B2109.LIB
+// 05.17.21 XT SYSTEM BUILD - RENAME OF MOTOR_COMMANDS_B2106_HW3RD0.LIB TO X_SER_MOTOR_B2109.LIB
+// 05.28.21 added IV immediate velocity query command to motor, added suport for *OPC operation complete
+// 05.28.21 added = 625000 setting to handle overshoot into the 625 to 630 ps range
+// 06.03.21 removed _MotorMovementWaitTime
+
+// 07.26.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21	X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 08.17.21 UPDATES TO HWIO_REL APIS, ROUND DOWN BUG AT LAST SECTION (SECTION NOW TURNS OFF FOR TROBONE TO DO REMAINDER)
+
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+
+// 10.08.21 added code to handle #ifdef DEVICE_XT_312P in MOTOR_Calibration
+// 10.18.21 START BUILD2112
+// 10.27.21 REMOVE MOTOR_SetDelay from EXTERNAL USE.
+
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+
+// 02.14.22 MOTOR_SetDelay: FIX TO HANDLE DEVICE_XT200_312P
+// 04.11.22 MOTOR_Calibration: MOVE TO 300 PS POSITION (NOT 600)
+// 04.11.22 HOTFIX: MOTOR_SetDelay: DO NOT CALL THIS API WITH > 312.50 PS DELAY SETTING ELSE WILL BE HALVED
+// 05.18.22 MotorMoveBar: removed and not used
+// 06.06.22 UPDATE TFT_ProgressBar FOR MOTOR ONLY DEVICE IF PARAMETERS.deviceMAX_DELAY_PS == 625.0
+
+// 08.23.22 COMPARED/MERGED TO B2203 AND TIMING_TEST VERSIONS AND SOURCE CODE VER 1.17 
+
+
+
+/*** BeginHeader */
+#ifndef X_SER_MOTOR_LIB
+#define X_SER_MOTOR_LIB
+/*** EndHeader */
+
+/*** BeginHeader
+MOTOR_MoveLeft,
+MOTOR_MoveRight,
+MOTOR_SetZero,
+MOTOR_SetDI,
+//MOTOR_SetDelay,
+MOTOR_Initialize,
+MOTOR_MoveToPosition,
+MOTOR_Calibration,
+MOTOR_SetDelayDigital
+MOTOR_VerifyAndRoundDelay,
+MOTOR_Command,
+MOTOR_ProcessResponse,
+MOTOR_ParseResponse
+
+*/
+enum MOTOR_COMMAND
+{
+    AL,
+    IP_COMMAND,
+    SC,
+    DI,
+    IS,
+    AR,
+    SP,
+    EP,
+    FL,
+    FP,
+    RE,
+    ME,
+    VE,
+    AC,
+    DE,
+    ER,
+    MO,
+    MD,
+    ML,
+    MR,
+    RS,
+    IV
+};
+void MOTOR_MoveLeft(void);
+void MOTOR_MoveRight(void);
+void MOTOR_SetZero(void);
+void MOTOR_SetDI(void);
+//unsigned char MOTOR_SetDelay(float _DelaySetting);
+void MOTOR_Initialize(void);
+float MOTOR_MoveToPosition(float position, unsigned int overshoot);
+short MOTOR_Calibration(void);
+unsigned char MOTOR_SetDelayDigital(long _NewDelaySettingDigital_L);
+unsigned char MOTOR_VerifyAndRoundDelay(float *del);
+void MOTOR_Command(enum MOTOR_COMMAND _COMMAND, long _ARG1, short int _Wait);
+void MOTOR_ProcessResponse(char *_MotorResponseCommandLine);
+long MOTOR_ParseResponse(char *_MotorResponseCommandLine);
+
+/*** EndHeader */
+
+//
+// START OF ALL LIBRARY SUBROUTINE AND FUNCTION CALLS
+//
+
+//
+//
+unsigned char MOTOR_SetDelay(float _NewDelaySetting)
+{
+    //
+    //	Description:Move the motor to _DelaySetting (in ps units)
+    //	Arguments:	_NewDelaySetting is value in ps units of the desired delay setting.
+    //			   	_NewDelaySetting MUST BE <= 312.50 PS //02.15.2017//
+    //	Returns:   	TRUE
+    //	Pre-req:   	None.
+    //	Globals:   	MOTOR_CurrentDelaySettingPS is set to the _DelaySetting
+    //			   	MOTOR_CurrentStepPosition set to current motor StepPosition
+    //	Notes:		Determines the amount to move left or right for motor and sets
+    //			   	the new motor position by moving it left or right.
+    //			   	WITH EVERY MOVE COMMAND, MOTOR REPLIES WITH ACKNOWLEDGE 0% CHARACTER
+    //			   	THESE ARE EITHER IGNORED OR CLEARD OUT BEFORE A READ OF THE RESPONSE
+    //             	INSTRUMENT.stateMOTOR_MOVE_CHECK_OPC = TRUE; can be set and
+    //				MOTOR_Command will wait/set/check the OPC
+    // 04.11.22 THIS API SHOULD NEVER BE CALLED WITH DELAY SETTING > 312.50 PS
+    //
+
+    float _NewDelayPositionSteps_f;
+    long _NewDelayPositionSteps_l;
+    long _DeltaSteps;
+    short int _DONE;
+    short int _DELAY_MOTOR_POS_HALVED;
+
+    _NewDelayPositionSteps_f = 0;
+    _NewDelayPositionSteps_l = 0;
+    _DeltaSteps = 0;
+    _DONE = FALSE;
+    _DELAY_MOTOR_POS_HALVED = FALSE;
+
+    // 08.15.2018 handle negative _NewDelaySetting (actually is 0) and set to 0
+    if (_NewDelaySetting < 0)
+    {
+        _NewDelaySetting = 0;
+    }
+    // 02.15.2017 MOTOR CAN ONLY HANDLE DELAY SETTING <= 312.50
+    // 02.14.22 HALVE THE VALUE BECAUSE MAX DELAY IS 312.50 PS AND DEVICE IS A XT200_312P
+	if (_NewDelaySetting >= 312.50)
+    {
+	    _NewDelaySetting = 0.50 * _NewDelaySetting;
+	    _DELAY_MOTOR_POS_HALVED = TRUE;
+    }
+
+   	// delay_setting has the number of PS to set the delay
+    // multiply by 1665.6 to get absolute position (0 to 525000 steps)
+    // take the integer of that
+
+    _NewDelayPositionSteps_f = _NewDelaySetting * 1665.60;     // float computed new delay position in abs step position
+    _NewDelayPositionSteps_l = (long)_NewDelayPositionSteps_f; // integer computed new delay position
+
+    // _DelaySetting is always >=0
+    // Compute the distance from current position to new delay position in number of steps
+    // NOTE: MOTOR IS POSITIONED ON THE LEFT HAND SIDE.  TROMBONE MOVES FROM LEFT TO RIGHT.
+    // FAR LEFT IS LEAST DELAY AND FAR RIGHT IS MOST DELAY.
+    // if result is POSITIVE(+) then need to move the MOTOR to the LEFT (MORE DELAY TO LESS DELAY)
+    // if result is NEGATIVE(-) then need to move the MOTOR to the RIGHT(LESS DELAY TO MORE DELAY)
+    // ZERO POSITION IS AT THE LIGHT BARRIER
+    //
+
+    if (_NewDelaySetting >= 0.00)
+    {
+        _DeltaSteps = MOTOR.CurrentStepPosition - (_NewDelayPositionSteps_l);
+        MOTOR.CurrentStepPosition = _NewDelayPositionSteps_l;
+    }
+    else
+    {
+        // new delay setting is NEGATIVE ... not possible
+        INSTRUMENT.stateERROR = TRUE;
+        INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+        return FALSE;
+    }
+
+    if (_DeltaSteps > 0)
+    {
+        // going from higher step number (MORE Delay) to lower step number (LESS Delay)
+        // after sending command, WAIT for the acknowledgement before returning
+        MOTOR_Command(MR, _DeltaSteps, WAIT); // MR = move right with MOTOR ON RIGHT SIDE
+    }
+    else
+    {
+        _DeltaSteps = _DeltaSteps * -1;
+        // going from lower step number (LESS delay) to higher step number (MORE delay)
+        // after sending command, WAIT for the acknowledgement before returning
+        MOTOR_Command(ML, _DeltaSteps, WAIT); // ML = move left with MOTOR ON RIGHT SIDE
+    }
+
+    // 02.15.2017 RESTORE THE DELAY SETTING IF HALVED EARLIER
+    if (_DELAY_MOTOR_POS_HALVED)
+    {
+        _NewDelaySetting = 2.0 * _NewDelaySetting;
+    }
+
+    MOTOR.CurrentDelaySettingPS = _NewDelaySetting;
+
+    // NOTE: when sending a COMMAND to move the motor, the motor replies with 0% acknowledgement
+
+    // if (_CheckPosition == FALSE) { return TRUE; } ;   // no wait to check position...just return
+    // return TRUE here if dont want to wait
+
+    // wait to let MOTOR MOVE for NEW MOTOR
+    // this is a costatement way to wait 500 ms
+    // TBD should try using HWIO_msDelay(x) where x is a variable amount depending
+    // on the distance that needs to be moved
+
+#ifdef STUBOUT
+    _DONE = FALSE;
+    while (1)
+    {
+        costate
+        {
+            waitfor(DelayMs(5000));
+            _DONE = TRUE;
+            abort;
+        }
+        if (_DONE == TRUE)
+        {
+            break;
+        }
+    }
+    serCrdFlush();                      // in case there are some 0% acknowledges pending
+    MOTOR_Command(IP_COMMAND, 0, WAIT); // command the MOTOR with IP and wait for response answer
+#endif
+
+    //ReadMOTOR_Response(IP); 	// send the ip command to motor to get immediate position
+
+    // ERROR: this send the ip command BUT the response occurs "outside the loop" of the ReadMOTOR_Response
+    // code.  i.e. the chars received are received in the OUTER MAIN WHILE LOOP and so it processes the response
+    // AFTER the return from the ReadMOTOR_Response command.
+
+    //
+    // DO I have to put a costate loop inside here and wait for the response? or put this into a
+    // method that should be called separately ?
+    //
+
+    // NOTE: as a result of sending the ip command, the results are placed in:
+    // INSTRUMENT.stateMOTOR_Response_VALUE = _MotorRESULTS_VALUE;
+    // INSTRUMENT.stateMOTOR_ResponseProcessed = TRUE;
+
+    //   if (INSTRUMENT.stateMOTOR_Response_VALUE == MOTOR_CurrentStepPosition) {
+    //
+    // now that the motor has been commanded with the new position, update the
+    // the instrument settings
+    //
+
+    INSTRUMENT_SETTINGS.CURRENT_DELAY = _NewDelaySetting;
+    INSTRUMENT.stateERROR = FALSE;
+    INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+    return TRUE;
+}
+
+#ifdef cmdOVERNEW
+void cmdOVER(void)
+{
+
+    //
+    // Description:   Sets the OVERSHOOT flag either ON or OFF added 10.04.06
+    // Args:          None.
+    // Returns:
+    // Prereq:        None.
+    // Globals:       g_userOVERSHOOT_PS = integer between 0 and 10
+    // Notes:         None.
+
+    int _OverShootAmountPS;
+
+    _OverShootAmountPS = 0;
+    _OverShootAmountPS = atoi(cmdARG2);
+
+    if ((_OverShootAmountPS >= 0) && (_OverShootAmountPS <= 10))
+    {
+        g_NVParameters.nv_overshoot_PS = _OverShootAmountPS;
+        if (_OverShootAmountPS == 0)
+        {
+            g_NVParameters.nv_overshoot = FALSE;
+        }
+        else
+        {
+            g_NVParameters.nv_overshoot = TRUE;
+        }
+
+        SaveNVParameters_HW1VER2();
+        INSTRUMENT.stateERROR_CODE = NO_ERROR;
+    }
+    else
+    {
+        INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+    }
+    return;
+
+} //cmdOVER
+
+void cmdOVERQ(void)
+{
+
+    //
+    // Description:   Returns the value of the OVERSHOOT amount in ps
+    // Args:          None.
+    // Returns:
+    // Prereq:        None.
+    // Globals:       g_userOVERSHOOT == TRUE or FALSE
+    // Notes:         None.
+
+    sprintf(BUFFERS.DISPLAY_LINE, "%3f\r\n", g_NVParameters.nv_overshoot_PS);
+    SYSTEM_OutputQueryResponse();
+    INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+} //cmdOVERQ
+#endif
+
+//
+
+void MOTOR_MoveLeft(void)
+{
+
+    //
+    // MOTOR_MoveLeft   move the Motor LEFT (or OUT) to MORE DELAY AND AWAY FROM BASE
+    //
+    // Description:   Move the Motor LEFT Direct char string TextToTerminal to the Serial Port of the Micro-Terminal
+    // Args:          TextToTerminal (char array)
+    // Returns:       None.
+    // Prereq:        BUFFERS.DISPLAY_LINE already has the preformed response text to be send.
+    // Globals:
+    // Notes:         None.
+
+    char MotorCommand[25];
+    long _NumberOfSteps;
+    _NumberOfSteps = 0;
+
+    /*
+   strcpy(MotorCommand,Motor_FL);
+   strcat(MotorCommand,cmdARG2);
+   strcat(MotorCommand,"\r");
+   serDputs(MotorCommand);
+
+	stateERROR = FALSE;
+	stateERROR_CODE = NO_ERROR;
+   */
+
+    _NumberOfSteps = strtol(cmdARG2, NULL, 10); // long integer
+    MOTOR_Command(FL, _NumberOfSteps, NOWAIT);
+
+    return;
+
+} // end MOTOR_MoveLeft
+
+void MOTOR_MoveRight(void)
+{
+
+    //
+    // MOTOR_MoveRight move the Motor RIGHT (or IN) to LESS DELAY AND TOWARDS THE BASE
+    // but uses
+    //
+    // Description:   Move the Motor RIGHT
+    // Args:          uses cmdARG2 for amount
+    // Returns:       None.
+    // Prereq:
+    // Globals:
+    // Notes:         None.
+
+    char MotorCommand[25];
+    long _NumberOfSteps;
+    _NumberOfSteps = 0;
+
+    //   strcpy(MotorCommand,Motor_FL);
+    //   strcat(MotorCommand,"-");
+
+    _NumberOfSteps = strtol(cmdARG2, NULL, 10); // long integer
+    _NumberOfSteps = _NumberOfSteps * -1;
+    MOTOR_Command(FL, _NumberOfSteps, NOWAIT);
+
+    //   strcat(MotorCommand,cmdARG2);
+    //   strcat(MotorCommand,"\r");
+    //   serDputs(MotorCommand);
+
+    return;
+
+} // end MOTOR_MoveRight
+
+void MOTOR_SetZero(void)
+{
+
+    //
+    // cmdMOTOR_TO_OPTO_DETECT to set the ZERO POSITION
+    // this position is 5XX000 steps from the OPTO DETECT EDGE and CLOSEST TO BASE (least delay)
+    //
+    // Description:   cmdMOTOR_TO_OPTO_DETECT to set the ZERO POSITION
+    // Args:          None
+    // Returns:       None.
+    // Prereq:
+    // Globals:
+    // Notes:         None.
+
+    // setting the ZERO POSITION
+    MOTOR_Command(EP, 0, NOWAIT);
+    MOTOR_Command(SP, 0, NOWAIT);
+    return;
+
+} // end MOTOR_SetZero
+
+void MOTOR_SetDI(void)
+{
+
+    //
+    // MOTOR_SetDI to set the DI value
+    //
+    // Description:   // MOTOR_SetDI to set the DI value
+    // Args:          None
+    // Returns:       None.
+    // Prereq:
+    // Globals:
+    // Notes:         None.
+
+    long _NumberOfSteps;
+    _NumberOfSteps = 0;
+
+    _NumberOfSteps = strtol(cmdARG2, NULL, 10); // long integer
+    MOTOR_Command(MD, _NumberOfSteps, WAIT);
+
+    INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+
+    return;
+
+} // end MOTOR_SetDI
+
+void MOTOR_Initialize(void)
+{
+    //
+    // Description:   Initialize the motor on startup.
+    // Args:          None.
+    // Returns:       None.
+    // Prereq:        None.
+    // Globals:
+    // Notes:         The hybrid motor is connected via RS-485 on serial port C.
+
+    short int InitCompleted;
+    int i;
+    int j;
+    long _MotorPosition;
+    long _StatusCode;
+    long _AlarmCode;
+    long _DI_Value;
+    long _InputStatusCode;
+
+    long _StartUpMotorPosition;
+
+    InitCompleted = FALSE;
+    i = 0;
+    j = 0;
+    _MotorPosition = 0;
+    _StatusCode = 0;
+    _AlarmCode = 0;
+    _DI_Value = -1;
+    MOTOR.RESPONSE_Value = 0;
+    _InputStatusCode = 0;
+    _StartUpMotorPosition = -1;
+
+    while (!InitCompleted)
+    {
+        costate
+        {
+            waitfor(DelayMs(HALF_SEC)); // allow time for motor to startup
+
+            // RESET the MOTOR to a known startup state
+
+            //	all MOTOR values go back to initial default conditions
+            //
+            // SHOULD HAVE METHOD FOR (load initial values to MOTOR) ??
+            // when starting with NEW MOTOR from factory ??
+
+            // establish communication and see if there is an Alarm
+            // get the current STATUS CODE FROM MOTOR AT POWER UP
+            MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            _StatusCode = MOTOR.RESPONSE_Value;
+
+            //
+            // 12.06.16 when trombone in opto position, 0SC=020C
+            // 12.06.16	which means that Alarm Present,Motor is in Position,and Drive Fault (Check alarm code)
+            //
+
+            // CHECK THE STATUS CODE.  IF ALARM PRESENT, RESET THE ALARM.
+            if (_StatusCode & SC_CODE_ALARM_PRESENT)
+            {                               // ALARM PRESENT !!
+                MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _AlarmCode = MOTOR.RESPONSE_Value;
+
+                sprintf(BUFFERS.DISPLAY_LINE, "#AC=%0X", _AlarmCode);
+                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+
+                // RESET ALARM
+                MOTOR_Command(AR, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                MOTOR_Command(ME, 0, WAIT); // MUST enable the motor after an alarm reset
+
+                // check the status after resetting the alarm
+                MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _StatusCode = MOTOR.RESPONSE_Value;
+
+                if (_StatusCode & SC_CODE_ALARM_PRESENT)
+                {
+                    sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR RESET\tFAIL");
+                    SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+                    // HALT // ??
+                    // RESETTING THE ALARM DOESN'T FIX PROBLEM.  MOTOR FAIL PROBLEM.
+                }
+            } // STATUS CODE ALARM PRESENT RESET
+
+            // GET ALARM CODE
+            MOTOR_Command(AL, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            _AlarmCode = MOTOR.RESPONSE_Value;
+
+            // IF ALARM CODE STILL PRESENT, RESET IT
+            if (_AlarmCode != 0)
+            {                               // ALARM STILL PRESENT?
+                MOTOR_Command(AR, 0, WAIT); // RESET IT //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _AlarmCode = MOTOR.RESPONSE_Value;
+
+                // IF RESETTING ALARM DOESN'T RESOLVE IT THEN HAVE A MOTOR FAIL
+                if (_AlarmCode != 0)
+                {
+                    sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR RESET\tFAIL");
+                    SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+                    // HALT // ??
+                    // RESETTING THE ALARM DOESN'T FIX PROBLEM.  MOTOR FAIL PROBLEM.
+                }
+            }
+
+            // READ CURRENT INPUT STATUS OF MOTOR
+            MOTOR_Command(IS, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            _InputStatusCode = MOTOR.RESPONSE_Value;
+
+            //
+            // AT STARTUP POSITION OF MOTOR IS UNKNOWN
+            // IF MOTOR POSITION IS INSIDE THE BARRIER; THEN BACKOFF 100000 STEPS
+            //
+
+            // SEE IF WE ARE INSIDE THE OPTO BARRIER
+            if ((_InputStatusCode & 0x0001) == 1)
+            {   // changed to 1 for HW1 VER 2 BOARD
+                // was 0 for HW PROTOTYPE BOARD)
+#ifdef MOTORMSGS
+                sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR MOVE\tIN OPTO");
+                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+#endif
+
+                // LOCATION IS INSIDE THE BARRIER SO MOVE BACK 100000 STEPS
+                MOTOR_Command(FL, -100000, WAIT);
+
+                waitfor(DelayMs(HALF_SEC)); // GIVE IT TIME TO MOVE AND SETTLE
+
+                MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _StatusCode = MOTOR.RESPONSE_Value;
+
+                // SEE IF THERE IS AN ALARM AFTER THIS INITIAL MOVEMENT
+                MOTOR_Command(AL, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _AlarmCode = MOTOR.RESPONSE_Value;
+
+                if (_AlarmCode != 0)
+                { // ALARM PRESENT?
+                    // ALARM CODE = 0x1000 == NO MOVE
+
+                    MOTOR_Command(AR, 0, WAIT); // RESET IT //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                    MOTOR_Command(ME, 0, WAIT); // MUST ENABLE THE MOTOR AFTER AN ALARM RESET
+
+                    MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                    _AlarmCode = MOTOR.RESPONSE_Value;
+
+                    waitfor(DelayMs(HALF_SEC)); // motor enable the motor after a reset
+
+                    MOTOR_Command(MD, DI_STOP_DISTANCE_AFTER_SENSOR, WAIT); // SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
+                                                                            //waitfor(sRMRA); sRMRA = FALSE;
+
+                    MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                    _AlarmCode = MOTOR.RESPONSE_Value;
+
+                    if (_AlarmCode != 0)
+                    {
+                        sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR RESET\tFAIL");
+                        SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+                        // HALT // ??
+                    }
+                }
+
+                // LOCATION IS NOW 100000 STEPS BACK FROM OPTO LIMIT
+
+                // MOVE BACK ANOTHER 100000 STEPS
+                MOTOR_Command(FL, -100000, WAIT);
+                waitfor(DelayMs(HALF_SEC));
+
+                // check MOTOR status
+                MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _StatusCode = MOTOR.RESPONSE_Value;
+
+                // READ CURRENT INPUT/OUTPUT STATUS OF MOTOR
+                MOTOR_Command(IS, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _InputStatusCode = MOTOR.RESPONSE_Value;
+
+                // SEE IF POSITION IS STILL INSIDE THE BARRIER
+                if ((_InputStatusCode & 0x0001) == 1)
+                {
+
+                    // check MOTOR status
+                    MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                    _StatusCode = MOTOR.RESPONSE_Value;
+
+                    // CANNOT POSITION MOTOR OUTSIDE OF OPTO DETECTOR
+                    sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR MOVE FAIL\tSC=%0X HALTED", _StatusCode);
+                    SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+                    // HALT // ??
+                    //while(1) { }
+
+                    waitfor(DelayMs(ONE_SEC));
+
+                    // reset the motor
+                    MOTOR_Command(RE, 0, NOWAIT); // RESET IT //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+
+                    waitfor(DelayMs(ONE_SEC));
+                    // motor enable the motor after a reset
+
+                    MOTOR_Command(ME, 0, NOWAIT);
+
+                    waitfor(DelayMs(ONE_SEC));
+
+                    MOTOR_Command(MD, DI_STOP_DISTANCE_AFTER_SENSOR, WAIT); // SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
+                                                                            //waitfor(sRMRA); sRMRA = FALSE;
+
+                    MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                    _AlarmCode = MOTOR.RESPONSE_Value;
+
+                    // MOVE BACK ANOTHER 100000 STEPS
+                    MOTOR_Command(FL, -100000, WAIT);
+                    waitfor(DelayMs(HALF_SEC));
+                }
+            } // end-if // INSIDE OPTO BARRIER AND BACKOFF 100000 STEPS
+
+            //
+            // MOTOR POSITION IS NOT IN BARRIER BUT OTHERWISE UNKNOWN.
+            //
+
+            MOTOR_Command(IP_COMMAND, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            _MotorPosition = MOTOR.RESPONSE_Value;
+
+#ifdef MOTORMSGS
+            sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR OPTO\tTEST");
+            SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+#endif
+
+            MOTOR_Command(MD, DI_STOP_DISTANCE_AFTER_SENSOR, WAIT); // SET THE MOVE DISTANCE(1) TO STOP FOR FS MOVEMENT
+
+            MOTOR_Command(DI, 0, WAIT);
+            _DI_Value = MOTOR.RESPONSE_Value;
+
+            MOTOR_Command(SC, 0, WAIT);
+            _StatusCode = MOTOR.RESPONSE_Value;
+
+            // get the current position and record it
+            MOTOR_Command(IP_COMMAND, 0, WAIT);
+            _StartUpMotorPosition = MOTOR.RESPONSE_Value;
+
+            MOTOR_Command(MO, 0, WAIT); // move to opto limit
+
+            waitfor(DelayMs(1500));
+
+            MOTOR_Command(SC, 0, WAIT);
+            _StatusCode = MOTOR.RESPONSE_Value;
+
+            //
+            // See if ALARM is present
+            //
+
+            if (_StatusCode & SC_CODE_ALARM_PRESENT)
+            {                               // ALARM PRESENT
+                MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _AlarmCode = MOTOR.RESPONSE_Value;
+
+                sprintf(BUFFERS.DISPLAY_LINE, "#AC=%0X", _AlarmCode);
+                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+
+                // try to reset it
+                MOTOR_Command(AR, 0, WAIT); // RESET IT //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+
+                MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _StatusCode = MOTOR.RESPONSE_Value;
+
+                if (_StatusCode & SC_CODE_ALARM_PRESENT)
+                {
+                    sprintf(BUFFERS.DISPLAY_LINE, "#ALARM RESET\tFAIL");
+                    SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+                    // HALT // ??
+                }
+            }
+
+            //
+            // NO ALARM...continue
+            //
+
+            MOTOR_Command(IP_COMMAND, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            _MotorPosition = MOTOR.RESPONSE_Value;
+
+            if (_MotorPosition == _StartUpMotorPosition)
+            {
+                // if the motor position is the same then there was a problem with OptoDetect Move
+
+                MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _StatusCode = MOTOR.RESPONSE_Value;
+
+                sprintf(BUFFERS.DISPLAY_LINE, "#NO MOVE ERR\t%d", MOTOR.RESPONSE_Value);
+                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+            }
+
+#ifdef MOTORMSGS
+            else
+            {
+                sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR OPTO\tPASS");
+                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+            }
+#endif
+
+            // if the starting motor position is above 525000, then MR 100000
+            // else MR for the entire amount of the initial position
+            //
+            if (_MotorPosition > MAX_NUMBER_MOTOR_STEPS)
+            {
+                MOTOR_Command(FL, -100000, WAIT);
+
+                waitfor(DelayMs(HALF_SEC));
+
+                MOTOR_Command(MO, 0, WAIT); //11.18.16    waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                waitfor(DelayMs(HALF_SEC));
+
+                MOTOR_Command(IP_COMMAND, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                _MotorPosition = MOTOR.RESPONSE_Value;
+            } // end-if
+
+#ifdef MOTORMSGS
+            sprintf(BUFFERS.DISPLAY_LINE, "#SET ZERO\tPOS");
+            SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
+#endif
+
+            //
+            //MOTOR_Move(MAX_NUMBER_MOTOR_STEPS); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+            //
+            // Currently motor position is inside the OPTO
+            // back off a fixed number of steps (MAX for instrument) and then set as ZERO POSITION
+            //_NumberOfSteps = _NumberOfSteps * -1 ;
+            // FL commands MOVES relative number of steps from current position
+            //
+            //
+            MOTOR_Command(FL, MAX_NUMBER_MOTOR_STEPS * -1, WAIT);
+
+            waitfor(DelayMs(1500));
+
+            MOTOR_Command(IP_COMMAND, 0, WAIT);
+            _MotorPosition = MOTOR.RESPONSE_Value;
+
+            //
+            // setting the ZERO POSITION
+            //
+            // EP Encoder Position command // EP0 to reset internal position counter to 0
+            MOTOR_Command(EP, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                                        // SP Set Position // SP0 to reset internal position counter to 0 == ZERO POINT
+            MOTOR_Command(SP, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
+                                        //
+
+            MOTOR_Command(IP_COMMAND, 0, WAIT);
+            _MotorPosition = MOTOR.RESPONSE_Value;
+
+            // at this point the MOTOR POSITION SHOULD BE AT ZERO
+            // if it is NOT then we have a problem\
+      // CHECK TO SEE IF 0IP=0 ?
+
+            waitfor(DelayMs(500)); // wait for everything to settle
+            InitCompleted = TRUE;
+        } // end-costate //
+    }     // end while
+} // end MOTOR_Initialize
+
+float MOTOR_MoveToPosition(float position, unsigned int overshoot)
+{
+    //
+    // This API interface layer was added to force all PDL positioning instructions to
+    // go through pdlGOTO_POSN to turn ON or turn OFF the OVERSHOOT flag.
+    // USE pdlGOTO_POSN instead of pdlStepToDelay function call
+    //
+    // NORMAL PDL OPERATION IS TO HAVE OVERSHOOT ALWAYS TURNED ON AND OVERSHOOT AMOUNT IS 5 PS
+    //
+    // replaces pdlSTEPTODELAY (desired position, overshoot)
+
+    float result;
+    float corrected_position;
+    float reported_pos;    //added 10.20.05 to parallel HW2 code
+    float calc_under_posn; //03.06.07
+
+    MOTOR_SetDelay(position);
+    //
+    // MOTOR_SetDelay sets INSTRUMENT_SETTINGS.CURRENT_DELAY to "position" and moves the
+    // motor to "position".  "position" is a float that indicates the number of picoseconds
+    //
+    result = INSTRUMENT_SETTINGS.CURRENT_DELAY;
+
+    return result;
+} // end MOTOR_MoveToPosition
+
+short MOTOR_Calibration(void)
+{
+    //
+    // DESCRIPTION:   *CAL and *CAL? commands.  Attempts calibration check.
+    // For the XT-100, calibration check moves the stepper motor out until
+    // it hits the light barrier, then moves back to 625 ps and marks that
+    // position as ZERO.  It then moves out to 625 ps and marks that as the outer
+    // limit (625ps).  For hardware: Variable potentiometer adjustment should be set
+    // to 2.40 volts.
+    //
+    // INPUTS:        NONE
+    //
+    // RETURNS:       use pdlDelayCalibrate()
+    //                call SYSTEM_OutputQueryResponse to display response
+    //
+    // GLOBALS:       BUFFERS.DISPLAY_LINE contains contents of text line response
+    //
+    // Notes:         Unit MUST be calibrated before calling PDLSetDelay
+
+    int count_single_step;
+    int count_full_steps;
+    int count_half_steps;
+    int i;
+    unsigned int wait_loops;
+    unsigned int wait;
+    unsigned char pass;
+
+    MOTOR_MoveToPosition(0.0, FALSE);
+
+	// 04.11.22 FOR ALL DEVICE TYPES, MOVE TO THE NEAR HALF POSITION
+    MOTOR_MoveToPosition(300.0, FALSE); // MOVE TO THE 300 POSITION
+
+    MOTOR_MoveToPosition(0.0, FALSE);
+
+    pass = TRUE;
+
+    if (pass == TRUE)
+    {
+        INSTRUMENT.stateERROR = FALSE;
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_PS = 0; // current delay value in picoseconds for Channel One
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_PS = 0; // current delay value in picoseconds for Channel Two
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_F = 0;  // 03.28.18 added
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_F = 0;  // 03.28.18 added
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_ONE_E = 0;  // 03.28.18 added
+        INSTRUMENT_SETTINGS.CURRENT_DELAY_TWO_E = 0;  // 03.28.18 added
+    }
+    else
+    {
+        INSTRUMENT.stateERROR = TRUE;
+        INSTRUMENT.stateERROR_CODE = NO_CALIBRATION; // calibration failed
+    }
+
+    return pass;
+
+} // end go_CALIBRATION
+
+//
+unsigned char MOTOR_SetDelayDigital(long _NewDelaySettingDigital_L)
+{
+    //
+    //	Description:Move the motor to _DelaySetting (in ps units)
+    //	Arguments:	_NewDelaySetting is value in ps units of the desired delay setting.
+    //				_NewDelaySetting MUST BE <= 312.50 PS //02.15.2017//
+    //	Returns:	TRUE
+    //	Pre-req:	None.
+    //	Globals:	MOTOR_CurrentDelaySettingPS is set to the _DelaySetting
+    //				MOTOR_CurrentStepPosition set to current motor StepPosition
+    //	Notes:		Determines the amount to move left or right for motor and sets
+    //				the new motor position by moving it left or right.
+    //				WITH EVERY MOVE COMMAND, MOTOR REPLIES WITH ACKNOWLEDGE 0% CHARACTER
+    //				THESE ARE EITHER IGNORED OR CLEARED OUT BEFORE A READ OF THE RESPONSE
+
+    long _NewDelayPositionSteps_l;
+    long _DeltaSteps;
+    short int _DONE;
+
+    _NewDelayPositionSteps_l = 0;
+    _DeltaSteps = 0;
+    _DONE = FALSE;
+
+    // NOTE: MOTOR IS POSITIONED ON THE LEFT HAND SIDE.  TROMBONE MOVES FROM LEFT TO RIGHT.
+    // FAR LEFT IS LEAST DELAY AND FAR RIGHT IS MOST DELAY.
+    // if result is POSITIVE(+) then need to move the MOTOR to the LEFT (MORE DELAY TO LESS DELAY)
+    // if result is NEGATIVE(-) then need to move the MOTOR to the RIGHT(LESS DELAY TO MORE DELAY)
+    // ZERO POSITION IS AT THE LIGHT BARRIER
+
+    // MOVE TO THE NEW DIGITAL STEP POSITION
+    if (_NewDelaySettingDigital_L >= 0)
+    {
+        _DeltaSteps = MOTOR.CurrentStepPosition - (_NewDelaySettingDigital_L);
+        MOTOR.CurrentStepPosition = _NewDelaySettingDigital_L;
+    }
+    else
+    {
+        // new delay setting is NEGATIVE ... not possible
+        INSTRUMENT.stateERROR = TRUE;
+        INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+        return FALSE;
+    }
+
+    if (_DeltaSteps > 0)
+    {
+        // going from higher step number (MORE Delay) to lower step number (LESS Delay)
+        // after sending command, WAIT for the acknowledgement before returning
+        MOTOR_Command(MR, _DeltaSteps, WAIT); // MR = move right with MOTOR ON RIGHT SIDE
+    }
+    else
+    {
+        _DeltaSteps = _DeltaSteps * -1;
+        // going from lower step number (LESS delay) to higher step number (MORE delay)
+        // after sending command, WAIT for the acknowledgement before returning
+        MOTOR_Command(ML, _DeltaSteps, WAIT); // ML = move left with MOTOR ON RIGHT SIDE
+    }
+
+    // NOTE: when sending a COMMAND to move the motor, the motor replies with 0% acknowledgement
+
+    // if (_CheckPosition == FALSE) { return TRUE; } ;   // no wait to check position...just return
+    // return TRUE here if dont want to wait
+
+    // wait to let MOTOR MOVE for NEW MOTOR
+    // this is a costatement way to wait 500 ms
+    // TBD should try using HWIO_msDelay(x) where x is a variable amount depending
+    // on the distance that needs to be moved
+
+#ifdef STUBOUT
+    _DONE = FALSE;
+    while (1)
+    {
+        costate
+        {
+            waitfor(DelayMs(5000));
+            _DONE = TRUE;
+            abort;
+        }
+        if (_DONE == TRUE)
+        {
+            break;
+        }
+    }
+    serCrdFlush();                      // in case there are some 0% acknowledges pending
+    MOTOR_Command(IP_COMMAND, 0, WAIT); // command the MOTOR with IP and wait for response answer
+#endif
+
+    //ReadMOTOR_Response(IP); 	// send the ip command to motor to get immediate position
+
+    // ERROR: this send the ip command BUT the response occurs "outside the loop" of the ReadMOTOR_Response
+    // code.  i.e. the chars received are received in the OUTER MAIN WHILE LOOP and so it processes the response
+    // AFTER the return from the ReadMOTOR_Response command.
+
+    //
+    // DO I have to put a costate loop inside here and wait for the response? or put this into a
+    // method that should be called separately ?
+    //
+
+    // NOTE: as a result of sending the ip command, the results are placed in:
+    // INSTRUMENT.stateMOTOR_Response_VALUE = _MotorRESULTS_VALUE;
+    // INSTRUMENT.stateMOTOR_ResponseProcessed = TRUE;
+
+    //   if (INSTRUMENT.stateMOTOR_Response_VALUE == MOTOR_CurrentStepPosition) {
+    //
+    // now that the motor has been commanded with the new position, update the
+    // the instrument settings
+    //
+
+    //	INSTRUMENT_SETTINGS.CURRENT_DELAY = _NewDelaySettingPS_f;
+    INSTRUMENT.stateERROR = FALSE;
+    INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+    return TRUE;
+}
+
+unsigned char MOTOR_VerifyAndRoundDelay(float *del)
+{
+    /*------------------------------------------------------------------------------
+    Description :  MOTOR_VerifyAndRoundDelay
+    Arguments   :
+    Returns     :  None.
+    Prereq      :  delay_setting
+    Globals     :
+    Notes       :  MOTOR_VerifyAndRoundDelay was added to simplify WEB_SERVER code
+                   and was originally extracted from Ver 1.30 source code
+    // 11.02.10 :  CODE VERIFIED
+    //------------------------------------------------------------------------------*/
+    //
+
+    float delay_setting;
+    unsigned char delay_overflow;
+    unsigned int delay_trunc_i; //least sig digit
+    unsigned int delay_int_only;
+    float delay_trunc_f;
+    float delay_temp;
+    float conv_units;
+    unsigned int delay_overflow_int; // if int portion of delay > 65536
+
+    delay_setting = *del;
+    delay_overflow = FALSE;
+#ifdef CHECK
+    if (stateDEVICE_MODE == DEVICE_PARALLEL)
+    {
+        delay_setting = delay_setting * 2.00;
+    }
+
+    //     ORIGINAL CODE COMPARE used > sign
+    //
+    //     if (((stateDEVICE_MODE == DEVICE_PARALLEL) && (delay_setting > 625.0 )) ||
+    //      ((stateDEVICE_MODE == DEVICE_SERIAL)   && (delay_setting > deviceMAX_DELAY_PS)))   {
+    //
+    //     THE FIX IS TO NOT USE THE > SIGN BUT TO DO A SUBTRACTION FOR THE COMPARISON
+    //
+    //MODIFY -- x.5 bug fix -- VER 1.07B
+
+    if (((stateDEVICE_MODE == DEVICE_PARALLEL) && (delay_setting > 625.0)) ||
+        ((stateDEVICE_MODE == DEVICE_SERIAL) && ((delay_setting - deviceMAX_DELAY_PS) > 0.01)))
+    {
+        return FALSE;
+    }
+
+    else
+    {
+        // 06.04.06 delay_setting contains the converted cmdARG2 value
+        // e.g. DEL 50 ps ==> delay_setting should contain 50 (units of ps)
+        // e.g. DEL 50.0E-12 ==> delay_setting should contain 50 (units of ps)
+        // 06.04.06 DETERMINE WHETHER TO HANDLE cmdARG2 as DECIMAL OR SCIENTIFIC NOTATION
+        if ((delay_setting > 0.0) && (delay_setting <= 1.0E-06))
+        {
+            //SCIENTIFIC NOTATION!!
+            delay_setting = delay_setting * 1.0E+12;
+        }
+
+        delay_temp = delay_setting / 1; //get just the integer portion
+        if (delay_temp > 65535.0)
+        {
+            delay_overflow = TRUE;
+            delay_temp = delay_temp - 65535.0;
+        }
+
+        // following steps of code are used to ROUND down the desired delay to
+        // nearest step size ...
+
+        // determine just the INTEGER portion of the desired delay
+        delay_int_only = (unsigned int)delay_temp;
+
+        // determine just the value to the RIGHT of the dec point, called truncated
+        if (delay_overflow)
+        {
+            delay_trunc_f = delay_setting - 65535.00 - delay_int_only;
+        }
+        else
+        {
+            delay_trunc_f = delay_setting - delay_int_only;
+        }
+        // delay_trunc_f has the TRUNCATED portion as a floating point variable
+
+        // delay_trunc_i has the TRUNCATED portion as an unsigned integer variable
+        delay_trunc_i = (unsigned int)((delay_trunc_f + 0.01) * 100.0);
+
+        // ROUND DOWN to nearest step size of XT-100 motor
+        if ((delay_trunc_i >= 0) && (delay_trunc_i <= 24))
+            delay_setting = (float)delay_int_only; // .00 thru .24 rounds down
+
+        if ((delay_trunc_i >= 25) && (delay_trunc_i <= 49))
+        {
+            if (stateDEVICE_MODE == DEVICE_SERIAL)
+                delay_setting = (float)delay_int_only; // .00 thru .24 rounds down
+            else
+                delay_setting = delay_int_only + 0.25;
+        } //end-if
+
+        if ((delay_trunc_i >= 50) && (delay_trunc_i <= 74))
+            delay_setting = delay_int_only + 0.50;
+
+        if ((delay_trunc_i >= 75) && (delay_trunc_i <= 99))
+        {
+            if (stateDEVICE_MODE == DEVICE_SERIAL)
+            {
+                delay_setting = (float)(delay_int_only + 1); //round up
+            }
+            else
+            {
+                delay_setting = delay_int_only + 0.75;
+            }
+        } //end-if
+
+        // if ((delay_trunc_i >= 100) || ((delay_trunc_f > 0.50) && (delay_trunc_f < 1.0)))
+        // added 05.14.05 added additional check (99.9995 ns)
+        if (delay_trunc_i >= 100) // added 05.14.05 added additional check (99.9995 ns)
+            delay_setting = (float)delay_int_only + 1.0;
+
+        // delay_setting now contains valid rounded down to nearest step size desired delay
+
+        // if there is a delay_overflow (because # > 65536), then compensate
+        if (delay_overflow)
+            delay_setting = delay_setting + 65535.0;
+
+        if (((stateDEVICE_MODE == DEVICE_PARALLEL) && (delay_setting > 625.0)) ||
+            ((stateDEVICE_MODE == DEVICE_SERIAL) && (delay_setting > deviceMAX_DELAY_PS)))
+        {
+            return FALSE;
+        } //endif
+
+    } // end-else
+#endif
+    *del = delay_setting;
+    return TRUE;
+
+} // end MOTOR_VerifyAndRoundDelay
+
+void MOTOR_Command(enum MOTOR_COMMAND _COMMAND, long _ARG1, short int _Wait)
+{
+    // Description:	MOTOR_Command sends the _COMMAND to the MOTOR and
+    //				can return immediately (NOWAIT) or use Costate (WAIT) for response.
+    //				Some commmands take _ARG1 as a parameter
+    // Args:
+    // Returns:     None.
+    // Prereq:
+    // Globals:
+    // Notes:       None.
+    //             	INSTRUMENT.stateMOTOR_MOVE_CHECK_OPC = TRUE; can be set and
+    //				MOTOR_Command will wait/set/check the OPC
+    //              SET THIS FLAG IN SET_DELAY
+
+    short int sRMRA;
+    char MotorCommand[25];
+    char Parameter[10];
+    short int _MOTOR_STOPPED;
+    short int _COMMAND_WAS_BUFFERED;
+    int _i;
+
+    #if defined(TFT_ATTACHED)
+ 	int _ProgressLowLimit;
+    int _ProgressHighLimit;
+    char _Text[10];
+
+	_ProgressLowLimit = 0;
+    _ProgressHighLimit = 0 ;
+    #endif
+
+    _i = 0;
+    MOTOR.RESPONSE_Value = 0;
+    sRMRA = FALSE;
+    _MOTOR_STOPPED = FALSE;
+    _COMMAND_WAS_BUFFERED = FALSE;
+
+    memset(strCOMMAND_LINE_PORTC,0x00,sizeof(strCOMMAND_LINE_PORTC));
+    strCharFromSerialPortC[0] = strCharFromSerialPortC[1] = 0;
+
+    stateSERIAL_CHAR_PORTC_IN = FALSE;
+    stateCOMMAND_LINE_PORTC_ENTER = FALSE;
+    stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR = FALSE;
+    stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR = FALSE;
+    stateMOTOR_RESPONSE_COMPLETE = FALSE;
+
+    // SEND OUT THE COMMAND
+    memset(MotorCommand,0x00,sizeof(MotorCommand));
+
+    switch (_COMMAND)
+    {
+    case AL:
+        strcpy(MotorCommand, Motor_AL);
+        break;
+    case SC:
+        strcpy(MotorCommand, Motor_SC);
+        break;
+    case DI:
+        strcpy(MotorCommand, Motor_DI);
+        break;
+    case IP_COMMAND:
+        strcpy(MotorCommand, Motor_IP);
+        break;
+    case IS:
+        strcpy(MotorCommand, Motor_IS);
+        break;
+    case IV:
+        strcpy(MotorCommand, Motor_IV);
+        break;
+    case VE:
+        strcpy(MotorCommand, Motor_VE);
+        break;
+    case AC:
+        strcpy(MotorCommand, Motor_AC);
+        break;
+    case DE:
+        strcpy(MotorCommand, Motor_DE);
+        break;
+    case ER:
+        strcpy(MotorCommand, Motor_ER);
+        break;
+    case SP:
+        strcpy(MotorCommand, Motor_SP);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = SP;
+        break;
+    case AR:
+        strcpy(MotorCommand, Motor_AR);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = AR;
+        break;
+    case EP:
+        strcpy(MotorCommand, Motor_EP);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = EP;
+        break;
+    case MO:
+        strcpy(MotorCommand, Motor_MO);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = MO;
+        break;
+    case FL:
+        strcpy(MotorCommand, Motor_FL);
+        //strcat(MotorCommand,"-");
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = FL;
+        break;
+    case FP:
+        strcpy(MotorCommand, Motor_FP);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = FP;
+        break; // added 01.26.21 // added break;
+    case RE:
+        strcpy(MotorCommand, Motor_RE);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = RE;
+        break;
+    case ME:
+        strcpy(MotorCommand, Motor_ME);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = ME;
+        break;
+    case MD:
+        strcpy(MotorCommand, Motor_DI);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = DI;
+        break;
+    case ML:
+        strcpy(MotorCommand, Motor_FL);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = ML;
+        break;
+    case MR:
+        _ARG1 = _ARG1 * -1;
+        strcpy(MotorCommand, Motor_FL);
+        sprintf(Parameter, "%ld", _ARG1);
+        strcat(MotorCommand, Parameter);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = MR;
+        break;
+    case RS:
+        strcpy(MotorCommand, Motor_RS);
+        INSTRUMENT.stateMOTOR_ResponseACK_TYPE = RS;
+        break;
+    default: // default to STATUS CONDITION
+        strcpy(MotorCommand, Motor_SC);
+        break;
+    } //end-switch
+
+    strcat(MotorCommand, "\r");
+    serCputs(MotorCommand); // put this out onto the C port 10.18.16
+
+    //serBputs(MotorCommand);    // COPY to SERIAL PORT TO MONITOR
+
+    INSTRUMENT.stateMOTOR_ResponseProcessed = FALSE;
+    INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+    ////////////////////////////////
+
+    // Check to see if wait for reponse (ACK or VALUE) is required
+    if (_Wait == NOWAIT)
+        return;
+
+    while (!sRMRA)
+    {
+        //
+        // WAIT LOOP FOR MOTOR RESPONSE ACKNOWLEDGEMENT % CHAR RETURNED FROM MOTOR AFTER SENDING A COMMAND TO MOVE
+        // Costate Loop to received chars over serial port while processing
+        // commands to the Motor.
+        // 1. use ReadMOTOR_Response(xx) to send a 2 letter command to motor
+        // 2. waitfor(sRMRA); sRMRA = FALSE; to wait for and receive 0% acknowledgement
+        // 3. _RAW_MOTOR_RESPONSE_Value has the response ;
+
+        // see if there are any characters from SERIAL C MOTOR RS-485
+        CharFromSerialPortC = serCgetc();
+        strCharFromSerialPortC[0] = (char)CharFromSerialPortC;
+        if (CharFromSerialPortC != 0xFF)
+        {                                                // CHAR available on SERIAL PORT C
+            stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR = TRUE; // signal char available
+        }
+
+        costate
+        {
+            waitfor(stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR);
+            stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR = FALSE;
+            if (CharFromSerialPortC == 0x0D)
+            {
+                stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR = TRUE;
+            }
+            else
+            {
+                // build the response line string by adding each character
+                strcat(strCOMMAND_LINE_PORTC, strCharFromSerialPortC);
+            }
+        } // end costate
+
+        costate
+        {
+            waitfor(stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR); // \r received
+            stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR = FALSE;
+            MOTOR.RESPONSE_Value = MOTOR_ParseResponse(strCOMMAND_LINE_PORTC);
+
+            strcat(strCOMMAND_LINE_PORTC, "\r");
+            strcat(strCOMMAND_LINE_PORTC, "\n");
+
+            // put the results into the BUFFERS.DISPLAY_LINE to display upon return
+            sprintf(BUFFERS.DISPLAY_LINE, strCOMMAND_LINE_PORTC);
+            // strCOMMAND_LINE_PORTC has the response from the MOTOR
+
+#ifdef DEBUGGING
+            // printf("%s received after send motor command\r\n", strCOMMAND_LINE_PORTC); // debug the output
+            if (strcmp(strCOMMAND_LINE_PORTC, "0*\r\n") == 0)
+            {
+                // command was buffered
+                _COMMAND_WAS_BUFFERED = TRUE;
+                printf("%s received from BUFFERED command\r\n", strCOMMAND_LINE_PORTC); // debug the output
+            }
+            else
+            {
+                // command was IMMEDIATE
+                _COMMAND_WAS_BUFFERED = FALSE;
+                printf("%s received from IMMEDIATE command\r\n", strCOMMAND_LINE_PORTC); // debug the output
+            }
+#endif
+
+            memset(strCOMMAND_LINE_PORTC, 0x00, sizeof(strCOMMAND_LINE_PORTC)); // clear out buffer
+            sRMRA = TRUE;                                                       // state READ MOTOR RESPONSE ACKNOWLEDGE 0% HAS BEEN RECEIVED //
+
+        }
+    } // end-while
+
+    // USE THIS BUILD X_SER_MOTOR_B2109-RD052721-OPC.LIB TO WORK ON OPERATION COMPLETE DETERMINATION
+
+    // DONE AT THIS POINT NORMALLY.
+    // RD012821
+
+    if (INSTRUMENT.stateMOTOR_MOVE_CHECK_OPC == TRUE)
+    {
+        INSTRUMENT.stateMOTOR_MOVE_CHECK_OPC = FALSE; // RESET THIS FLAG
+        // THIS IS THE FINAL MOVEMENT OF MOTOR SO WAIT/CHECK FOR OPERATION COMPLETE
+        // KEEP CHECKING THE MOTOR TO SEE IF MOVEMENT HAS COMPLETED
+        // SEND COMMANDS TO SEE IF VELOCITY HAS STOPPED YET
+        // 05.27.21
+        // PERFORM A WHILE LOOP AND SEND QUERY COMMANDS TO MOTOR UNTIL IT IS DONE MOVING //
+
+        _MOTOR_STOPPED = FALSE;
+        // 50x MAX to query velocity commands -- CORRESPONDS TO 100 MS DELAY  //
+        // 06.03.22 CHANGE TO 100 TO CORRESPOND TO 50 MS DELAY //
+
+        #if defined(TFT_ATTACHED)
+        _ProgressLowLimit = INSTRUMENT_SETTINGS.PROGRESS_BAR_LOW_LIMIT;     // THIS WAS SET IN cmdSET_DELAY
+        _ProgressHighLimit = INSTRUMENT_SETTINGS.PROGRESS_BAR_HIGH_LIMIT;   // THIS WAS SET IN cmdSET_DELAY
+        #endif
+		// SPIN IN A LOOP UP TO 100 TIMES TO SEND IV? QUERY TO MOTOR AND GET RESPONSE
+        for (_i = 0; _i < 100; _i++)
+        {
+            strcpy(MotorCommand, Motor_IV);
+            INSTRUMENT.stateMOTOR_ResponseACK_TYPE = IV;
+            strcat(MotorCommand, "\r");
+            serCputs(MotorCommand); // SEND THE IV QUERY
+            sRMRA = FALSE;
+		        // IF XT-100-625P OR XT-200-625P PRIMARY ... UPDATE THE PROGRESS BAR (YELLOW) FOR THE MOTOR
+	            #if defined(TFT_ATTACHED)
+                TFT_UpdateProgressBar(VIEWPORT_CH1,G_GREY,_ProgressLowLimit,_ProgressHighLimit); //
+                #endif
+            //}
+            // HWIO_msDelay(100); // wait 100 ms; give it time
+            // NOTE: MUST WAIT ENOUGH TIME AND/OR NUMBER OF FOR LOOPS
+            // FOR THE RESPONSE FROM THE MOTOR REACHES ZERO VELOCITY OR STOPPED
+            // HWIO_msDelay(25); // 06.03.22 25 MS CORRESPONDS TO MAX VALUE OF _i AT 83
+            HWIO_msDelay(50); // 06.06.22 TRY 50 06.03.22 25 MS CORRESPONDS TO MAX VALUE OF _i AT 83
+
+   	        // IF XT-100-625P OR XT-200-625P PRIMARY ... UPDATE THE PROGRESS BAR (BLACK) FOR THE MOTOR
+            #if defined(TFT_ATTACHED)
+            TFT_UpdateProgressBar(VIEWPORT_CH1,G_BLACK,_ProgressLowLimit,_ProgressHighLimit); //
+            #endif
+
+            while (!sRMRA)
+            {
+                // COSTATE LOOP TO RECEIVE CHARS OVER SERIAL PORT WHILE PROCESSING COMMANDS TO MOTOR
+                // 1. use ReadMOTOR_Response(xx) to send a 2 letter command to motor
+                // 2. waitfor(sRMRA); sRMRA = FALSE; to wait for and receive 0% acknowledgement
+                // 3. _RAW_MOTOR_RESPONSE_Value has the response ;
+
+                // see if there are any characters from SERIAL C MOTOR RS-485
+                CharFromSerialPortC = serCgetc();
+                strCharFromSerialPortC[0] = (char)CharFromSerialPortC;
+                if (CharFromSerialPortC != 0xFF)
+                {                                                // CHAR available on SERIAL PORT C
+                    stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR = TRUE; // signal char available
+                }
+                costate
+                {
+                    waitfor(stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR);
+                    stateSERIAL_CHAR_PORTC_IN_INIT_MOTOR = FALSE;
+                    if (CharFromSerialPortC == 0x0D)
+                    {
+                        stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR = TRUE;
+                    }
+                    else
+                    {
+                        // build the response line string by adding each character
+                        strcat(strCOMMAND_LINE_PORTC, strCharFromSerialPortC);
+                    }
+                } // end costate
+
+                costate
+                {
+                    waitfor(stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR); // \r received
+                    stateCOMMAND_LINE_PORTC_ENTER_INIT_MOTOR = FALSE;
+                    MOTOR.RESPONSE_Value = MOTOR_ParseResponse(strCOMMAND_LINE_PORTC);
+                    stateMOTOR_RESPONSE_COMPLETE = TRUE;
+                    sRMRA = TRUE; // all done get out of building buffers
+                }
+            } // while loop end
+
+            // got a response and EXITED the while loop
+            stateMOTOR_RESPONSE_COMPLETE = FALSE;
+
+            strcat(strCOMMAND_LINE_PORTC, "\r");
+            strcat(strCOMMAND_LINE_PORTC, "\n");
+
+            // put the results into the BUFFERS.DISPLAY_LINE to display upon return
+            sprintf(BUFFERS.DISPLAY_LINE, strCOMMAND_LINE_PORTC);
+            // strCOMMAND_LINE_PORTC[] has the response from the MOTOR
+            //#if defined(DEBUG_APP)
+            //printf("%s", strCOMMAND_LINE_PORTC); // debug the output
+            //#endif
+            if (strcmp(strCOMMAND_LINE_PORTC, "0IV=0\r\n") == 0) // see if we are stopped
+            {
+                // catches mis-reporting when i = 0
+                // NOTE:MOTOR REPORTS 0IV=0 WHEN INITIALLY MOVING IN THE NEGATIVE DIRETION
+                if (_i > 1)
+                { 	// _i (# of for loops/commands sent) needs to be >1 else it's too soon to be stopped !
+                    // printf("%s STOPPED \r\n", strCOMMAND_LINE_PORTC); // debug the output
+                    _MOTOR_STOPPED = TRUE;
+                    //#if defined(DEBUG_APP)
+                    //printf("%i _i count\r\n", _i);
+                    //#endif
+                }
+            }
+            memset(strCOMMAND_LINE_PORTC, 0x00, sizeof(strCOMMAND_LINE_PORTC)); // clear out buffer
+            if (_MOTOR_STOPPED == TRUE)
+            {
+                break; // break out of the FOR LOOP
+            }
+            // otherwise loop around
+        } // end FOR loop
+
+        // WHEN THE FINAL LOOP IS DONE AND MOTOR HAS STOPPED, THEN SET
+        if (_MOTOR_STOPPED == TRUE)
+        {
+            INSTRUMENT.stateOPERATION_COMPLETE = TRUE;
+#ifdef DEBUGGING
+            printf("*OPC* i= %d\r\n", _i);
+#endif
+        }
+    } // end if
+    return;
+
+} // end MOTOR_Command
+
+void MOTOR_ProcessResponse(char *_MotorResponseCommandLine)
+{
+    //
+    // Description:   MOTOR_ProcessResponse processes the response from the MOTOR.
+    //				  The MOTOR responses can be:
+    // 				  0%					ACKNOWLEDGEMENT
+    // 				  0IP=XXXXXX     RESPONSE TO A QUERY
+    // 				  to a query by analyzing the two characters preceeding
+    //				  the = sign and stores the value in the CORRESPONDING location
+    // Args:
+    // Returns:       None.
+    // Prereq:
+    // Globals:       strCOMMAND_LINE_PORTD[] has the raw response data
+    //						MOTOR_Response has the raw response data
+    // Notes:         None.
+
+    char MotorCommand[25];
+    long _MotorResponseResults;
+
+    _MotorResponseResults = 0;
+    memset(MotorCommand, 0x00, sizeof(MotorCommand)); // clear out
+
+    if (strlen(MOTOR.RESPONSE_Text) == 0)
+    { 	// motor is on PORT C
+        // nothing to do, no response //
+        INSTRUMENT.stateERROR = TRUE;
+        INSTRUMENT.stateERROR_CODE = INVALID_RESPONSE;
+        return;
+    }
+    else
+    {
+        strncpy(MotorCommand, MOTOR.RESPONSE_Text, sizeof(MOTOR.RESPONSE_Text));
+        // NEED TO PARSE THE MOTOR RESPONSE
+        _MotorResponseResults = MOTOR_ParseResponse(MotorCommand); // ACCEPTS
+    }
+    return;
+} // end MOTOR_ProcessResponse
+
+long MOTOR_ParseResponse(char *_MotorResponseCommandLine)
+{
+
+    //
+    // Description:   MOTOR_ParseResponse parses strCOMMAND_LINE_PORTD which
+    //						is the response from the MOTOR.
+    // Args:
+    // Returns:       None.
+    // Prereq:
+    // Globals:       strCOMMAND_LINE_PORTD[] has the raw response data
+    // Notes:         None.
+
+    char _MotorRESPONSE_COPY[25];
+    char _MotorID;
+    char _MotorCOMMAND[5];
+    char _MotorRESULTS[10];
+    char *MotorIDptr;
+    char *MotorCOMMANDptr;
+    char *MotorRESULTSptr;
+    long _MotorRESULTS_VALUE;
+
+    _MotorRESULTS_VALUE = 0;
+    memset(_MotorRESPONSE_COPY, 0x00, sizeof(_MotorRESPONSE_COPY)); // clear out
+
+    //strcpy(MotorRESPONSE_COPY,strCOMMAND_LINE_PORTD);
+    strcpy(_MotorRESPONSE_COPY, _MotorResponseCommandLine);
+
+    if (strlen(_MotorRESPONSE_COPY) == 2)
+    {
+        // SEE IF 0% ACKNOWLEDGEMENT RECEIVED //
+        if (strcmp(_MotorRESPONSE_COPY, "0%") == 0)
+        {
+            // ACKNOWLEDGEMENT
+            INSTRUMENT.stateMOTOR_ResponseACK = TRUE;
+        }
+    }
+    else
+    {
+        // parse the response 0IP=xxxxxxxx
+        // char 0             is the MOTOR ID #
+        // char 1 and 2   is the COMMAND
+        // char 3             equal sign
+        // char 4 ...     results (either HEX digits or DECIMAL digits)
+
+        MotorIDptr = _MotorRESPONSE_COPY;
+        _MotorID = (char)*MotorIDptr;
+
+        MotorCOMMANDptr = MotorIDptr + 1;
+        memset(_MotorCOMMAND, 0x00, sizeof(_MotorCOMMAND)); // clear out
+
+        strncpy(_MotorCOMMAND, MotorCOMMANDptr, 2);
+
+        MotorRESULTSptr = MotorIDptr + 4;                        // skip past 2 chars for command and 1 for = sign
+        _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 16); // long integer from hex string base 16
+
+        // for the corresponding MOTOR COMMAND, store the value
+        // compute the value depending on the input string type (HEX digits or DECIMAL digits)
+        // NOTE: There are two different return types HEX string or DECIMAL string
+
+        if (strcmp(_MotorCOMMAND, "IS") == 0)
+        {                                                            ///change////
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 16); // long integer from hex string base 16
+            INSTRUMENT.stateMOTOR_Response_TYPE = IS;
+        }
+        else if (strcmp(_MotorCOMMAND, "AL") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 16); // long integer from hex string base 16
+            INSTRUMENT.stateMOTOR_Response_TYPE = AL;
+        }
+        else if (strcmp(_MotorCOMMAND, "SC") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 16); // long integer from hex string base 16
+            INSTRUMENT.stateMOTOR_Response_TYPE = SC;
+        }
+        else if (strcmp(_MotorCOMMAND, "DI") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = DI;
+        }
+        else if (strcmp(_MotorCOMMAND, "IP") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = IP_COMMAND;
+        }
+        else if (strcmp(_MotorCOMMAND, "IV") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = IV;
+        }
+        else if (strcmp(_MotorCOMMAND, "VE") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = VE;
+        }
+        else if (strcmp(_MotorCOMMAND, "AC") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = AC;
+        }
+        else if (strcmp(_MotorCOMMAND, "DE") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = DE;
+        }
+        else if (strcmp(_MotorCOMMAND, "ER") == 0)
+        {
+            _MotorRESULTS_VALUE = strtol(MotorRESULTSptr, NULL, 10); // long integer from decimal string base 10
+            INSTRUMENT.stateMOTOR_Response_TYPE = ER;
+        }
+
+        INSTRUMENT.stateMOTOR_Response_VALUE = _MotorRESULTS_VALUE;
+        INSTRUMENT.stateMOTOR_ResponseProcessed = TRUE;
+    }
+
+    return _MotorRESULTS_VALUE;
+
+} // end MOTOR_ParseResponse
+
+/*** BeginHeader */
+#endif // #ifndef _MOTOR_COMMANDS_LIB
+       /*** EndHeader */

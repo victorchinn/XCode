@@ -1,0 +1,1926 @@
+/* START LIBRARY DESCRIPTION ***************************************************
+*	File:           X_SER_PDM_HW_B2206BETA.LIB
+*	Desc:			API FUNCTIONS LIB FOR XS-100 HW
+*	Proj:			XS-100 HW
+*	Date:			04.24.22
+*	Auth:			Victor Chinn
+*
+END DESCRIPTION ***************************************************************/
+
+// 04.24.22 *****************************************************************
+// 04.24.22 *****************************************************************
+// 04.24.22 *****************************************************************
+
+// 08.19.22 REPLACE USINGP4 MACRO DIRECTIVE WITH DEVICE_XS100_010N
+// 08.19.22 XSPDM_cmdPINQ: larger buffer memory size to 20 and memset to clear out answer
+// 08.24.22 XSPDM_SET_PD_COMPUTE: when using CAL TABLE in XS-100-005N (5120 entries) or XS-100-010N (2048 entries)
+
+#include <stdint.h>
+#include <stdbool.h>
+
+/*** BeginHeader */
+#ifndef _XSPDM_FUNCTIONS_LIB
+#define _XSPDM_FUNCTIONS_LIB
+/*** EndHeader */
+
+/*** BeginHeader
+XSPDM_PinDiodeSendData,
+XSPDM_SPI_Latch_PD,
+XSPDM_SPI_Write_PD,
+XSPDM_flipByte,
+XSPDM_SET_PD_COMPUTE,
+XSPDM_SET_PD_DIRECT,
+XSPDM_cmdRELPD,
+XSPDM_cmdCTSTORE,
+XSPDM_cmdPINR,
+XSPDM_cmdPINQ,
+XSPDM_cmdCTSTRQ,
+XSPDM_cmdCTSTOREM,
+XSPDM_cmdCTSTOREMQ,
+XSPDM_cmdHW_TRGEDGE,
+XSPDM_cmdSW_SET_CYCLES,
+XSPDM_cmdSW_CYCLESQ,
+XSPDM_cmdSWD_SET_START,
+XSPDM_cmdSWD_STARTQ,
+XSPDM_cmdSWD_SET_STOP,
+XSPDM_cmdSWD_STOPQ,
+XSPDM_cmdSWD_SET_STEP,
+XSPDM_cmdSWD_STEPQ,
+XSPDM_cmdSWD_SET_RATE,
+XSPDM_cmdSWD_RATEQ,
+XSPDM_cmdSW_SET_ROLL,
+XSPDM_cmdSW_ROLLQ,
+XSPDM_cmdSW_SET_TYPE,
+XSPDM_cmdSW_TYPEQ,
+XSPDM_cmdXS_SWEEP,
+XSPDM_cmdSW_STOP,
+XSPDM_cmdSW_SET_TRIG,
+XSPDM_cmdTRIGQ
+
+*/
+
+typedef struct
+{
+	unsigned char byte15_8;
+	unsigned char byte7_0;
+} PIN_DIODE_STRUCT;
+
+// 04.24.22 FOR XS-100 PDM
+PIN_DIODE_STRUCT PinDiodeStruct; // structure to hold PIN diode settings
+
+//*************************** User Functions ***************************//
+void XSPDM_PinDiodeSendData(PIN_DIODE_STRUCT *PinDiodeStructPtr);
+void XSPDM_SPI_Latch_PD(void);
+void XSPDM_SPI_Write_PD(unsigned char byte);
+unsigned char XSPDM_flipByte(unsigned char byte);
+float XSPDM_SET_PD_COMPUTE(float delay_value);
+void XSPDM_SET_PD_DIRECT(void);
+void XSPDM_cmdRELPD(void);
+void XSPDM_cmdCTSTORE(void);
+void XSPDM_cmdPINR(void);		   // PIN
+void XSPDM_cmdPINQ(void);		   // PIN?
+void XSPDM_cmdCTSTRQ(void);		   // CTSTORE?
+void XSPDM_cmdCTSTOREM(void);	   // CTSTOREM
+void XSPDM_cmdCTSTOREMQ(void);	   // CTSTOREM?
+void XSPDM_cmdHW_TRGEDGE(void);	   // HWTRGEDGE
+void XSPDM_cmdSW_SET_CYCLES(void); //
+void XSPDM_cmdSW_CYCLESQ(void);	   //
+void XSPDM_cmdSWD_SET_START(void); //
+void XSPDM_cmdSWD_STARTQ(void);	   //
+void XSPDM_cmdSWD_SET_STOP(void);  //
+void XSPDM_cmdSWD_STOPQ(void);	   //
+void XSPDM_cmdSWD_SET_STEP(void);  //
+void XSPDM_cmdSWD_STEPQ(void);	   //
+void XSPDM_cmdSWD_SET_RATE(void);  //
+void XSPDM_cmdSWD_RATEQ(void);	   //
+void XSPDM_cmdSW_SET_ROLL(void);   //
+void XSPDM_cmdSW_ROLLQ(void);	   //
+void XSPDM_cmdSW_SET_TYPE(void);   //
+void XSPDM_cmdSW_TYPEQ(void);	   //
+void XSPDM_cmdXS_SWEEP(void);	   //
+void XSPDM_cmdSW_STOP(void);	   //
+void XSPDM_cmdSW_SET_TRIG(void);   //
+void XSPDM_cmdTRIGQ(void);		   //
+
+/*** EndHeader */
+
+//------------------------------ Definitions ---------------------------------//
+
+// DEFINES GO HERE ...
+
+void XSPDM_PinDiodeSendData(PIN_DIODE_STRUCT *PinDiodeStructPtr)
+{
+	//	/*	Desc:		Sends data to relay shift registers
+	//	 * 	Args:		None.
+	//	 *	Returns:	None.
+	//	 *	Prereq:		None.
+	//	 *	Globals:	None.
+	//	 *	Side E:		Pin diode outputs will change.
+	//	 *	Notes:		None.
+	//	 */
+	//
+	//	// Send last 2 bytes
+	SPIWrite(&(PinDiodeStructPtr->byte15_8), 1);
+	SPIWrite(&(PinDiodeStructPtr->byte7_0), 1);
+
+	// SET THE LATCH TO LOAD THE DATA
+	XSPDM_SPI_Latch_PD();
+
+} // end PinDiodeSendData
+
+void XSPDM_SPI_Latch_PD(void)
+{
+	//	Desc:		Causes data to get latched to the pin diode outputs.
+	//	Args:		None.
+	//	Returns:	None.
+	//	Prereq:		None.
+	//	Globals:	None.
+	//	Side E:		Pin diode outputs may change.
+	//	Notes:		None.
+	//
+	//	LOW HIGH LOW FOR LATCH TO LOAD THE PDM CONTROL REGISTERS
+
+	// 	04.24.22 NEED TO CHANGE FOR XS-100 PDM TBD
+	// 	BitWrPortI(PEDR, &PEDRShadow, LATCH_ASSERT, LATCH_DIODE);
+	// 	BitWrPortI(PEDR, &PEDRShadow, LATCH_DEASSERT, LATCH_DIODE);
+
+#if defined(XSPDM_ATTACHED)
+	// 04.25.22 LOW
+	BitWrPortI(PADR, &PADRShadow, LOW, PDM_LATCH); // PA3 FOR PDM_LATCH/TFT_DC IN XS-100
+
+	// BitWrPortI(PEDR, &PEDRShadow, LATCH_ASSERT, LATCH_RELAY);
+	// 04.25.22 HIGH ASSERT
+	BitWrPortI(PADR, &PADRShadow, HIGH, PDM_LATCH); // PA3 FOR PDM_LATCH/TFT_DC IN XS-100
+
+	// BitWrPortI(PEDR, &PEDRShadow, LATCH_DEASSERT, LATCH_RELAY);
+	// 04.25.22 LOW
+	BitWrPortI(PADR, &PADRShadow, LOW, PDM_LATCH); // PA3 FOR PDM_LATCH/TFT_DC IN XS-100
+#endif
+} // end relayLatchDiodePD
+
+void XSPDM_SPI_Write_PD(char byte)
+{
+	char _data;
+	_data = byte;
+	SPIWrite(&_data, 1);
+	// printf("SPIWrite 0x%02x\r\n",d);
+}
+
+unsigned char XSPDM_flipByte(unsigned char byte)
+{
+	//	Desc:	Flips the input byte such that the input LSB is the
+	//			returned MSB and vice-versa
+
+	char index, temp;
+
+	temp = 0;
+
+	for (index = 0; index < 8; index++)
+	{
+		if (byte & (1 << index))
+			temp |= 1 << (7 - index);
+	}
+
+	return temp;
+
+} // end flipByte
+
+float XSPDM_SET_PD_COMPUTE(float delay_value)
+{
+	//	Desc:		Determines which PIN diodes to turn on or off for given delay_value delay setting
+	// 	Args:		delay_value has delay setting
+	//	Returns:	None. Sets up global variable hwRELAY[1..16] to 1 ON or 0 OFF
+	//	Prereq:		hWRELAY_VALUE[1..16] is pre-filled with set Delay Line values.
+	//	Globals:	None.
+	//	Side E:		None.
+	//	Notes:		THIS IS CALLED BY MAIN PDM APPLICATION to set the PIN diode sections.
+	//
+	//	05.10.05	Need to handle ODD boundary condition, XS_LAST_RELAY_SECTION_ODD
+	//	08.21.08	SetPIN_diodesXP is to handle HIGH PRECISION table values for more accuracy
+	//	08.21.08	uses hwRELAY_VALUE_XP[] and hwRELAY_XP[] instead
+	//	09.01.08	use NV_RAM CALIBRATION TABLE IF FLAG IS SPECIFIED
+	//  11.11.10	CURRENTLY USED METHOD TO SET DELAY -- UPDATE FOR CHANGED CTSTORE PATTERN
+
+	short i;
+	// float delay_remainder; 		//holds running remainder as delay is subtracted through each hwRELAY_VALUE element
+	unsigned int relaysON_OFF;
+	unsigned char n1, n2, n3, n4; // four bits corresponding to n1:n2:n3:n4
+	int index;					  // 09.01.08 to index the CAL_TABLE
+	unsigned int bit_pattern_in_table;
+	unsigned char skip_setting_relays;
+
+	float remainder;
+
+	// 09.01.08 use CAL_TABLE if flag is set
+
+	remainder = 0;
+
+	if ((GLOBAL_SETTINGS.USE_CAL_TABLE) && (delay_value != 0)) // 08.19.22 replace XS_USE_CAL_TABLE to USE_CAL_TABLE
+	{														   // determine if using CTSTORE TABLE OR NOT
+
+// 08.24.22
+// FOR XS-100-05N THERE ARE 5120 ENTRIES
+// FOR XS-100-10N THERE ARE 2048 ENTRIES
+#if defined(DEVICE_XS100_005N)
+		index = (int)delay_value; //
+#else
+		index = (int)delay_value / 5; //
+#endif
+		bit_pattern_in_table = g_NVParameters.nv_cal_table[index]; // get relay bit pattern
+
+		if (bit_pattern_in_table == 0)
+		{
+			remainder = delay_value * 10; // entry is ZERO so don't use the bit pattern
+		}
+		else
+		{
+			//	      for (i=16; i>0; i--) {
+			for (i = 1; i < 16; i++)
+			{ // changed bit order and already swapped!!
+				if (bit_pattern_in_table & 0x0001)
+				{
+					//	            hwRELAY_XP[i] = ON;
+					HW_RELAYS.RELAY_ON_OFF[i] = ON; // duplicate for cmdRELPDQ?
+				}
+				else
+				{
+					//	            hwRELAY_XP[i] = OFF;
+					HW_RELAYS.RELAY_ON_OFF[i] = OFF; // duplicate for cmdRELPDQ?
+				}
+				bit_pattern_in_table = bit_pattern_in_table >> 1;
+			} // end-for
+			remainder = 0;
+			skip_setting_relays = TRUE;
+		}
+	}
+	else
+	{ // IF NOT USING CTSTORE TABLE THEN HAVE TO COMPUTE EACH DELAY SECTION AND DIODE TO TURN ON/OFF
+
+		remainder = delay_value;
+
+		// CALTABLE IS NOT USED
+		for (i = 16; i > 0; i--)
+		{ // CTSTORE IS NOT USED SO START FROM 16 to 1 AND DO SUCCESSIVE SUBTRACTION
+			// ASSUME 8PS IS NOT USED and 5PS SECTION IS USED
+			// IF 8 PS IS NOT USED, THEN VALUE IN HWRELAY_VALUE_XP[4] = 0 SO REMAINDER IS CORRECT
+
+			if (HW_RELAYS.RELAY_DELAY_VALUE[i] == 0)
+			{
+				HW_RELAYS.RELAY_ON_OFF[i] = OFF; // turn OFF this relay
+												 // 11.08.10 HW_RELAYS.RELAY_ON_OFF[i] = OFF;  // duplicate for cmdRELPDQ?
+			}									 // end-if
+			else
+			{
+
+#if defined(DEVICE_XS100_010N)
+				if ((remainder >= HW_RELAYS.RELAY_DELAY_VALUE[i]))
+				{
+					// TURN ON THIS RELAY
+					HW_RELAYS.RELAY_ON_OFF[i] = ON; // duplicate for cmdRELPDQ?
+					remainder = remainder - HW_RELAYS.RELAY_DELAY_VALUE[i];
+				} // end-if
+				else
+				{
+					HW_RELAYS.RELAY_ON_OFF[i] = OFF; // duplicate for cmdRELPDQ?
+				}									 // end-else-if
+#else
+				if (i == 4)
+				{
+					HW_RELAYS.RELAY_ON_OFF[i] = OFF; // ignore the 8 ps section
+				}
+				else
+				{
+					if ((remainder >= HW_RELAYS.RELAY_DELAY_VALUE[i]))
+					{
+						// TURN ON THIS RELAY
+						HW_RELAYS.RELAY_ON_OFF[i] = ON; // duplicate for cmdRELPDQ?
+						remainder = remainder - HW_RELAYS.RELAY_DELAY_VALUE[i];
+					} // end-if
+					else
+					{
+						HW_RELAYS.RELAY_ON_OFF[i] = OFF; // duplicate for cmdRELPDQ?
+					}									 // end-else-if
+				}										 // end-else-if
+#endif
+
+			} // end else-if
+		}	  // end for
+	}
+
+	// HW_RELAYS.RELAY_ON_OFF[] contains which relays to turn off or on and
+	// delay_remainder is < 625ps
+
+	// relaysON_OFF contains which bits corresponding to which relays
+
+	relaysON_OFF = 0x0000;
+
+	// FOR PDM-100A, the ordering is not directly descending so make adjustments
+	// 1,2,4,8 ps
+	// 5,10,20,40,80,160,320,640 ps
+	// 1280,2560 ps
+	// 5120 ps
+	// if HW_RELAYS.RELAY_ON_OFF[5] is ON, then want the 8 ps section ON
+	// if HW_RELAYS.RELAY_ON_OFF[4] is ON, then want the 5 ps section ON
+	//
+
+	///* 04.05.06 D
+
+	// ORIGINAL CODE:
+
+	// n4 : n3 : n2 : n1
+	// n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]);
+	// n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	// n2 = (HW_RELAYS.RELAY_ON_OFF[8] << 3) + (HW_RELAYS.RELAY_ON_OFF[7] << 2) + (HW_RELAYS.RELAY_ON_OFF[6] << 1) + (HW_RELAYS.RELAY_ON_OFF[5]);
+	// n1 = (HW_RELAYS.RELAY_ON_OFF[4] << 3) + (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]);
+	// printf("\n\r%d %d %d %d",n1,n2,n3,n4);
+	// relaysON_OFF = n1 + (n2 << 4) + (n3 << 8) + (n4 << 12) ;
+	//*/
+
+	// NOTE: PIN DIODE MODULES
+	// p1 has controls 1 thru 4
+	// p2 has controls 1 thru 8
+	// p3 has controls 1 thru 2
+	// p4 has controls 1 only
+
+	// PinDiodeStruct.byte15_8 = (n4 << 4) + n3 ;
+
+	n1 = (HW_RELAYS.RELAY_ON_OFF[4] << 3) + (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]); //* if using all four sections of P1-PDM board)
+	n2 = (HW_RELAYS.RELAY_ON_OFF[8] << 3) + (HW_RELAYS.RELAY_ON_OFF[7] << 2) + (HW_RELAYS.RELAY_ON_OFF[6] << 1) + (HW_RELAYS.RELAY_ON_OFF[5]); // if using 5 ps section
+
+	// 07.14.20 added to support using P4-PDM as third module
+
+#if defined(DEVICE_XS100_010N)
+	n3 = (0 << 3) + (0 << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);				   // P3 only uses 9 and 10
+	n4 = (HW_RELAYS.RELAY_ON_OFF[13] << 2) + (HW_RELAYS.RELAY_ON_OFF[12] << 1) + (HW_RELAYS.RELAY_ON_OFF[11]); // P4 uses only 11
+#else
+	n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]);
+#endif
+
+	//   n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	//   n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]);  // 09.21.08
+
+	relaysON_OFF = n1 + (n2 << 4) + (n3 << 8) + (n4 << 12); // note: MSB is on LEFT and LSB is on RIGHT
+
+	PinDiodeStruct.byte15_8 = (n4 << 4) + n3;
+	PinDiodeStruct.byte7_0 = (n2 << 4) + n1;
+
+	XSPDM_PinDiodeSendData(&PinDiodeStruct);
+
+	// AUG 18 2008
+	HW_RELAYS.SETTINGS = relaysON_OFF; // set value in global variable
+
+	//   relaySetRelay(relaysON_OFF);
+
+	return remainder; // remainder has the balance of delay (to be provided by trombone)
+
+} // end SetPIN_diodes
+
+void XSPDM_SET_PD_DIRECT()
+{
+	//		Desc:		Sets the PIN diodes DIRECTLY from HW_RELAYS.RELAY_ON_OFF[] array settings
+	// 		Args:		NONE
+	//		Returns:	None. Sets up global variable HW_RELAYS.RELAY_ON_OFF[1..16] to 1 ON or 0 OFF
+	//		Prereq:		HW_RELAYS.RELAY_DELAY_VALUE[1..16] is pre-filled with set Delay Line values.
+	//		Globals:	None.
+	//		Side E:		None.
+	//		Notes:
+	//
+	//		05.10.05	Need to handle ODD boundary condition, g_LAST_RELAY_SECTION_ODD
+	//		04.05.06	Support 4 PDM modules (P1,P2,P3,P4) to make one PDM-100A Instrument
+	//
+	//
+
+	short i;
+	// float delay_remainder; 		//holds running remainder as delay is subtracted through each HW_RELAYS.RELAY_DELAY_VALUE element
+	unsigned int relaysON_OFF;
+	unsigned char n1, n2, n3, n4; // four bits corresponding to n1:n2:n3:n4
+	unsigned int ps5, ps8;
+
+	// HW_RELAYS.RELAY_ON_OFF[] contains which relays to turn off or on and
+
+	// relaysON_OFF contains which bits corresponding to which relays
+
+	relaysON_OFF = 0x0000;
+
+	// FOR PDM-100A, the ordering is not directly descending so make adjustments
+	// 1,2,4,8 ps
+	// 5,10,20,40,80,160,320,640 ps
+	// 1280,2560 ps
+	// 5120 ps
+	// if HW_RELAYS.RELAY_ON_OFF[5] is ON, then want the 8 ps section ON
+	// if HW_RELAYS.RELAY_ON_OFF[4] is ON, then want the 5 ps section ON
+	//
+
+	//   n1 = (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]); //* if using only first three sections of P1-PDM board)
+	n1 = (HW_RELAYS.RELAY_ON_OFF[4] << 3) + (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]); //* if using all four sections of P1-PDM board)
+	n2 = (HW_RELAYS.RELAY_ON_OFF[8] << 3) + (HW_RELAYS.RELAY_ON_OFF[7] << 2) + (HW_RELAYS.RELAY_ON_OFF[6] << 1) + (HW_RELAYS.RELAY_ON_OFF[5]); // if using 5 ps section
+																																			   //   n2 = (HW_RELAYS.RELAY_ON_OFF[7] << 3) + (HW_RELAYS.RELAY_ON_OFF[6] << 2) + (HW_RELAYS.RELAY_ON_OFF[5] << 1); // if NOT using 5 ps section
+
+	// 07.14.20
+#if defined(DEVICE_XS100_010N)
+	n3 = (0 << 3) + (0 << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);				   // P3 only uses 9 and 10
+	n4 = (HW_RELAYS.RELAY_ON_OFF[13] << 2) + (HW_RELAYS.RELAY_ON_OFF[12] << 1) + (HW_RELAYS.RELAY_ON_OFF[11]); // P4 uses only 11
+#else
+	n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]);
+#endif
+
+	relaysON_OFF = n1 + (n2 << 4) + (n3 << 8) + (n4 << 12);
+	PinDiodeStruct.byte15_8 = (n4 << 4) + n3;
+	PinDiodeStruct.byte7_0 = (n2 << 4) + n1;
+	XSPDM_PinDiodeSendData(&PinDiodeStruct);
+
+	// AUG 18 2008
+	HW_RELAYS.SETTINGS = relaysON_OFF; // set value in global variable
+
+} // end SetPD_direct
+
+void XSPDM_cmdRELPD(void)
+{
+
+	//	/*------------------------------------------------------------------------------
+	//	Description	:	Handles REL or rel command to turn on (00 thru 15) PIN DIODE SWITCH
+	//	Arguments	:
+	//	Returns		:	CurrentDelay_F, CurrentDelay
+	//	Prereq		:	None.
+	//	Globals		:  	uses hwRELAY[] for on/off and hwRELAY_VALUE[] for values
+	//	Notes		:  	This is a NEW command.  REL is used to turn on or off individual relays.
+	//	USAGE		:  	REL X ON | OFF    where X is the PIN DIODE switch
+	//             		LED SWITCHES (LOOKING DOWN ON HW2 SYSTEM BOARD
+	//					01 02 03 04 	05 06 07 08 	09 10 11 12 	13 14 15 16
+	//
+	//              	16 15 14 13 -- 12 11 10 09 -- 08 07 06 05 -- 04 03 02 01 //
+	//              	NOTE: Specifying X=0 selects ALL relays to be ON or OFF.
+	//				:  	calls SetPD_direct() to set PIN DIODES
+	// 11.02.10 	: 	CODE VERIFIED
+	//------------------------------------------------------------------------------*/
+
+	short switch_number;
+	short switch_ON, switch_OFF;
+	int hwSET_SWITCH;
+	float sumDELAY;
+	short j;
+
+	switch_ON = 0x0001;
+	switch_OFF = 0xFFFF;
+	hwSET_SWITCH = 0x0000;
+	switch_number = atoi(cmdARG2);
+
+	if ((switch_number >= 0) && (switch_number <= 16))
+	{
+		switch (switch_number)
+		{
+		case 0:
+			hwSET_SWITCH = 0xFFFF; // SELECT ALL PIN DIODES SWITCHES!!
+			break;
+		case 1:
+		case 2:
+		case 3:
+			hwSET_SWITCH = 0x0008;
+			hwSET_SWITCH = hwSET_SWITCH >> ((switch_number % 4) - 1);
+			hwSET_SWITCH = hwSET_SWITCH << 12;
+			break;
+		case 4:
+			hwSET_SWITCH = 0x1000;
+			break;
+		case 5:
+		case 6:
+		case 7:
+			hwSET_SWITCH = 0x0008;
+			hwSET_SWITCH = hwSET_SWITCH >> ((switch_number % 4) - 1);
+			hwSET_SWITCH = hwSET_SWITCH << 8;
+			break;
+		case 8:
+			hwSET_SWITCH = 0x0100;
+			break;
+		case 9:
+		case 10:
+		case 11:
+			hwSET_SWITCH = 0x0008;
+			hwSET_SWITCH = hwSET_SWITCH >> ((switch_number % 4) - 1);
+			hwSET_SWITCH = hwSET_SWITCH << 4;
+			break;
+		case 12:
+			hwSET_SWITCH = 0x0010;
+			break;
+		case 13:
+		case 14:
+		case 15:
+			hwSET_SWITCH = 0x0008;
+			hwSET_SWITCH = hwSET_SWITCH >> ((switch_number % 4) - 1);
+			break;
+		case 16:
+			hwSET_SWITCH = 0x0001;
+			break;
+		} // end switch
+
+		// hwSET_SWITCH has the bit ON to set it on
+		if ((strcmp(cmdARG3, "ON") == 0) || (strcmp(cmdARG3, "on") == 0))
+		{
+			// relaySetRelay(hwRELAY_SETTINGS | hwSET_SWITCH); //inclusive OR turns ON bits
+			if (switch_number == 0)
+			{
+				for (j = 1; j <= 16; j++)
+				{
+					HW_RELAYS.RELAY_ON_OFF[j] = TRUE; // 11.08.10
+				}									  // end-for
+			}										  // end-if
+			else
+			{
+				HW_RELAYS.RELAY_ON_OFF[switch_number] = TRUE; // 11.08.10
+			}
+			XSPDM_SET_PD_DIRECT(); // SET PIN DIODES FROM HW_RELAYS.RELAY_ON_OFF[]
+		}						   // end-else
+		else
+		{
+			if ((strcmp(cmdARG3, "OFF") == 0) || (strcmp(cmdARG3, "off") == 0))
+			{
+				hwSET_SWITCH = ~hwSET_SWITCH; // INVERT THE BITS TO SET
+											  // relaySetRelay(hwRELAY_SETTINGS & hwSET_SWITCH); //THEN 'AND' TO TURN OFF RELAY BIT
+				if (switch_number == 0)
+				{
+					for (j = 1; j <= 16; j++)
+					{
+						HW_RELAYS.RELAY_ON_OFF[j] = FALSE; // 11.08.10
+					}									   // end-for
+				}										   // end-if
+				else
+				{
+					HW_RELAYS.RELAY_ON_OFF[switch_number] = FALSE; // 11.08.10
+				}
+				XSPDM_SET_PD_DIRECT(); // SET PIN DIODES FROM HW_RELAYS.RELAY_ON_OFF[]
+			}						   // end-if
+			else
+			{
+				// INVALID 3rd ARGUMENT -- IGNORED
+			} // end-else-if
+		}	  // end else-if
+	}		  // end-if
+	else
+	{
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG; // invalid argument
+	}											  // end-else-if
+
+	// after the relays are switched or changed, update the current delay value displayed
+	sumDELAY = 0;
+	for (j = 1; j <= 16; j++)
+	{
+		if (HW_RELAYS.RELAY_ON_OFF[j] == TRUE) // 11.08.10
+			sumDELAY = sumDELAY + HW_RELAYS.RELAY_DELAY_VALUE[j];
+	} // end-for
+	DISPLAY_SETTINGS.CURRENT_DELAY_F = sumDELAY;
+	INSTRUMENT_SETTINGS.CURRENT_DELAY = sumDELAY;
+	INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+} // end cmdRELPD
+
+void XSPDM_cmdCTSTORE(void)
+{
+
+	//	/*------------------------------------------------------------------------------
+	//	Description	:	Set calibration table values in NVPARAMETERS using command:]
+	//					CTSTORE ITEM# VALUE
+	//	Arguments	:	cmdARG2 and cmdARG3
+	//	Returns		:
+	//	Prereq:     :	cmdARG1 has ASCII value CAL command
+	//	Globals		:
+	//	Notes:
+	// 11.02.10 	: 	CODE VERIFIED
+	//------------------------------------------------------------------------------*/
+	//
+
+	int index;
+	unsigned int value;
+	int i;
+	int j;
+	char TEMP[SIZE_CAL_INFO_FIELD];
+	int _MaxChars;
+
+	if (strcmp(cmdARG2, "SAVE") == 0)
+	{ // added 09.16.06
+		SYSTEM_SaveNVParametersXT();
+		INSTRUMENT.stateERROR = FALSE;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	} // save all to NV RAM persistent storage
+	else
+	{
+		if (strcmp(cmdARG2, "LOAD") == 0)
+		{								 // added 09.16.06
+			SYSTEM_LoadNVParametersXT(); // read all parameters from NVRAM STORAGE
+			INSTRUMENT.stateERROR = FALSE;
+			INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		} // load the calibration table into global memory g_CAL_TABLE from NVRAM storage
+		else
+		{
+			if (strcmp(cmdARG2, "RESET") == 0)
+			{ // added 09.16.06
+				for (i = 0; i <= SIZE_CAL_TABLE - 1; i++)
+				{
+					g_NVParameters.nv_cal_table[i] = 0;
+				}
+				INSTRUMENT.stateERROR = FALSE;
+				INSTRUMENT.stateERROR_CODE = NO_ERROR;
+			} // load the calibration table into global memory g_CAL_TABLE from NVRAM storage
+			else
+			{
+				if (strcmp(cmdARG2, "INFO") == 0)
+				{ // store just the CAL TABLE INFORMATION PART ONLY
+					if (strlen(cmdARG3) != 0)
+					{
+						// 02.04.09 COPY FROM 13th char to the end "CTSTORE INFO X..."
+						_MaxChars = strlen(GLOBAL_SETTINGS.COMMAND_LINE_COPY);
+						if ((_MaxChars - 13) > SIZE_CAL_INFO_FIELD)
+						{
+							_MaxChars = SIZE_CAL_INFO_FIELD + 13;
+						}
+
+						for (j = 13; j < _MaxChars; j++)
+						{
+							TEMP[j - 13] = GLOBAL_SETTINGS.COMMAND_LINE_COPY[j];
+						}
+						strcpy(g_NVParameters.nv_cal_info, TEMP);
+						SYSTEM_SaveNVParametersXT();
+						INSTRUMENT.stateERROR = FALSE;
+						INSTRUMENT.stateERROR_CODE = NONE;
+					}
+					else
+					{
+						INSTRUMENT.stateERROR = TRUE;
+						INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+					}
+				}
+				else
+				{
+
+					if (strcmp(cmdARG2, "ON") == 0)
+					{ // added 09.16.06
+
+// 07.14.20 if USINGP4 then do NOT use CAL TABLE so set to FALSE
+// 08.19.22 REPLACE USINGP4 MACRO DIRECTIVE WITH DEVICE_XS100_010N
+#if defined(DEVICE_XS100_010N)
+						GLOBAL_SETTINGS.USE_CAL_TABLE = FALSE;
+						g_NVParameters.nv_useCTSTORE = FALSE;
+#else
+						GLOBAL_SETTINGS.USE_CAL_TABLE = TRUE;
+						g_NVParameters.nv_useCTSTORE = TRUE;
+#endif
+
+						SYSTEM_SaveNVParametersXT();
+						INSTRUMENT.stateERROR = FALSE;
+						INSTRUMENT.stateERROR_CODE = NO_ERROR;
+					} // use the calibration table
+					else
+					{
+						if (strcmp(cmdARG2, "OFF") == 0)
+						{ // added 09.16.06
+							GLOBAL_SETTINGS.USE_CAL_TABLE = FALSE;
+							g_NVParameters.nv_useCTSTORE = FALSE;
+							SYSTEM_SaveNVParametersXT();
+							INSTRUMENT.stateERROR = FALSE;
+							INSTRUMENT.stateERROR_CODE = NO_ERROR;
+						} // DO NOT USE the calibration table
+						else
+						{
+							// cmdARG2 IS AN INDEX VALUE
+							if (strlen(cmdARG2) != 0)
+							{
+								index = atoi(cmdARG2);
+							}
+							else
+							{
+								index = 0;
+							} // end-else-if
+
+							if (strlen(cmdARG3) != 0)
+							{
+								value = (unsigned int)atoi(cmdARG3);
+							}
+							else
+							{
+								value = 0;
+							} // end-else-if
+
+							if ((index > 0) && (index <= SIZE_CAL_TABLE - 1))
+							{
+								g_NVParameters.nv_cal_table[index] = value;
+								INSTRUMENT.stateERROR = FALSE;
+								INSTRUMENT.stateERROR_CODE = NO_ERROR;
+							}
+							else
+							{
+								INSTRUMENT.stateERROR = TRUE;
+								INSTRUMENT.stateERROR_CODE = INVALID_ARG; // invalid argument
+							}
+						} // end-else
+					}	  // end-else //02.04.09
+				}		  // end-else
+			}			  // end-else
+		}				  // end-else
+	}					  // end-else
+} // end cmdCTSTORE
+
+void XSPDM_cmdPINR(void)
+{
+
+	//	/*------------------------------------------------------------------------------
+	//	 Description	:	Set RELAYS RAW using BINARY PATTERN
+	//	 RELR VALUES
+	//	 Arguments		:	cmdARG2 has int16 signed decimal integer argument pattern
+	//						LSB (bit for 1ps) is the LEFT MOST BIT - decimal value is -32768
+	//	BIT 1 1ps = -32768
+	//  BIT 2 2ps = 16384
+	//  BIT 3 4ps = 8192
+
+	//  BIT 4 --\/-- (bit 5)  5ps = 4096 (controls the 5 ps PIN diode) NOTE: THESE ARE SWAPPED
+	//  BIT 5 --/\-- (bit 4)  8ps = 2048 (controls the 8 ps PIN diode)
+
+	//  BIT 6 10ps = 1024
+	//  BIT 7 20ps = 512
+	//  BIT 8 40ps = 256
+	//  BIT 9 80ps = 128
+	//  BIT 10 160ps = 64
+	//  BIT 11 320ps = 32
+	//  BIT 12 640ps = 16
+	//  BIT 13 1280ps = 8
+	//  BIT 14 2560ps = 4
+	//  BIT 15        = 2
+	//  BIT 16        = 1
+	//
+	//	Returns		:
+	//	Prereq		:
+	//	Globals		:
+	//	Notes		:
+	// 11.02.10 	: 	CODE VERIFIED
+	//------------------------------------------------------------------------------*/
+	//
+
+	int index;
+	unsigned int value;
+	int i;
+	unsigned int bit_pattern;
+	unsigned int relaysON_OFF;
+	unsigned char ps5;
+	unsigned char ps8;
+	unsigned char n1, n2, n3, n4;
+	unsigned int v;
+	unsigned int found;
+
+	if (strlen(cmdARG2) != 0)
+	{
+		value = (unsigned int)atoi(cmdARG2);
+	}
+	else
+	{
+		value = 0;
+	} // end-else-if
+
+	bit_pattern = value;
+
+	// 10.21.17 CAN REFACTOR AND IMPROVE FOR SPEED
+	// 10.21.17 SPLIT bit_pattern into two 8 bits halves then load directly
+	// 10.21.17 to PD controller
+	//
+
+	// 09.06.17 before and original code
+	/*
+
+	for (i=16; i>0; i--) {
+	   if (bit_pattern & 0x0001) {
+		  HW_RELAYS.RELAY_ON_OFF[i] = ON;
+		  }
+	   else {
+		  HW_RELAYS.RELAY_ON_OFF[i] = OFF;
+		  }
+	   bit_pattern = bit_pattern >> 1 ;
+	} // end-for
+	*/
+
+	// 09.06.17 reverse the order
+	for (i = 1; i <= 16; i++)
+	{
+		if (bit_pattern & 0x0001)
+		{
+			HW_RELAYS.RELAY_ON_OFF[i] = ON;
+		}
+		else
+		{
+			HW_RELAYS.RELAY_ON_OFF[i] = OFF;
+		}
+		bit_pattern = bit_pattern >> 1;
+	} // end-for
+	relaysON_OFF = 0x0000;
+
+	// FOR PDM-100A, the ordering is not directly descending so make adjustments
+	// 1,2,4,8 ps
+	// 5,10,20,40,80,160,320,640 ps
+	// 1280,2560 ps
+	// 5120 ps
+	// if HW_RELAYS.RELAY_ON_OFF[5] is ON, then want the 8 ps section ON
+	// if HW_RELAYS.RELAY_ON_OFF[4] is ON, then want the 5 ps section ON
+	//
+
+	// 09.06.17 -- NO NEED TO DO THIS SWAP BECAUSE USING CALIBRATION TABLE
+
+	// ORIGINAL CODE:
+	// n4 : n3 : n2 : n1
+	// n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]);
+	// n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	// n2 = (HW_RELAYS.RELAY_ON_OFF[8] << 3) + (HW_RELAYS.RELAY_ON_OFF[7] << 2) + (HW_RELAYS.RELAY_ON_OFF[6] << 1) + (HW_RELAYS.RELAY_ON_OFF[5]);
+	// n1 = (HW_RELAYS.RELAY_ON_OFF[4] << 3) + (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]);
+	// printf("\n\r%d %d %d %d",n1,n2,n3,n4);
+	// relaysON_OFF = n1 + (n2 << 4) + (n3 << 8) + (n4 << 12) ;
+	//*/
+
+	// NOTE: PIN DIODE MODULES
+	// p1 has controls 1 thru 4
+	// p2 has controls 1 thru 8
+	// p3 has controls 1 thru 2
+	// p4 has controls 1 only
+
+	// PinDiodeStruct.byte15_8 = (n4 << 4) + n3 ;
+
+	// ORIGINAL METHOD 09.06.17
+	n1 = (HW_RELAYS.RELAY_ON_OFF[4] << 3) + (HW_RELAYS.RELAY_ON_OFF[3] << 2) + (HW_RELAYS.RELAY_ON_OFF[2] << 1) + (HW_RELAYS.RELAY_ON_OFF[1]); //* if using all four sections of P1-PDM board)
+	n2 = (HW_RELAYS.RELAY_ON_OFF[8] << 3) + (HW_RELAYS.RELAY_ON_OFF[7] << 2) + (HW_RELAYS.RELAY_ON_OFF[6] << 1) + (HW_RELAYS.RELAY_ON_OFF[5]); // if using 5 ps section
+	n3 = (HW_RELAYS.RELAY_ON_OFF[12] << 3) + (HW_RELAYS.RELAY_ON_OFF[11] << 2) + (HW_RELAYS.RELAY_ON_OFF[10] << 1) + (HW_RELAYS.RELAY_ON_OFF[9]);
+	n4 = (HW_RELAYS.RELAY_ON_OFF[16] << 3) + (HW_RELAYS.RELAY_ON_OFF[15] << 2) + (HW_RELAYS.RELAY_ON_OFF[14] << 1) + (HW_RELAYS.RELAY_ON_OFF[13]); // 09.21.08
+
+	relaysON_OFF = n1 + (n2 << 4) + (n3 << 8) + (n4 << 12); // note: MSB is on LEFT and LSB is on RIGHT
+
+	PinDiodeStruct.byte15_8 = (n4 << 4) + n3;
+	PinDiodeStruct.byte7_0 = (n2 << 4) + n1;
+	XSPDM_PinDiodeSendData(&PinDiodeStruct);
+
+	// AUG 18 2008
+	HW_RELAYS.SETTINGS = relaysON_OFF; // set value in global variable
+
+	// 06.01.09 see if can find the delay value by using reverse lookup
+
+	// 10.03.17 remove the following to see if can get faster UCAL TABLE generation times
+	// 10.03.17  without NETWORK timeout errors
+	/*
+	found = FALSE;
+	v = 0 ;
+	while ((!found) && (v < SIZE_CAL_TABLE - 1)) {
+	  if (g_NVParameters.nv_cal_table[v] == value) {
+		found = TRUE;
+		  CurrentDelay = v;
+		  CurrentDelay_F = v;
+		}
+	  else {
+		 v++;
+		}
+	} // end-while
+	*/
+
+	INSTRUMENT.stateERROR = FALSE;
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+} // end cmdPINR
+
+void XSPDM_cmdPINQ(void)
+{
+	//	/*------------------------------------------------------------------------------
+	//	Description	:	Returns the state of all PIN Diode Switches on or off
+	//	Arguments	:
+	//	Returns		:	BUFFERS.DISPLAY_LINE
+	//	Prereq		:	None.
+	//	Globals		:  HW_RELAYS.RELAY_ON_OFF[], hwRELAY_VALUE[j]; hwRELAY_SETTINGS (raw binary format)
+	// Notes      	:
+	// 11.02.10 	: 	CODE VERIFIED
+	//------------------------------------------------------------------------------*/
+
+	int r[20];
+	int i, j;
+	unsigned int b;
+	char answer[20];		   // this has LSB on the LEFT
+	char answer_LSB_RIGHT[20]; // this has LSB on the RIGHT
+	float sumDELAY;			   // has RAW switch settings value (actual delay value varies because of CAL-TABLE
+
+	memset(answer, 0x00, sizeof(answer));					  // CLEAR MEMORY
+	memset(answer_LSB_RIGHT, 0x00, sizeof(answer_LSB_RIGHT)); // CLEAR MEMORY
+
+	// 10.21.17
+	// can this be refactored to improve speed?
+
+	for (i = 1; i <= 16; i++)
+	{
+		b = 1;
+		b = b << (i - 1);
+		r[i] = (b & HW_RELAYS.SETTINGS) >> (i - 1);
+		if (r[i])
+		{
+			answer[i - 1] = '1';
+			answer_LSB_RIGHT[16 - i] = '1';
+		}
+		else
+		{
+			answer[i - 1] = '0';
+			answer_LSB_RIGHT[16 - i] = '0';
+		}
+	} // end-for
+
+	answer[16] = 0; // LSB IS ON THE LEFT (the 1 ps section) and the MSB IS ON THE RIGHT (2560 ps section)
+	sumDELAY = 0;
+
+	for (j = 1; j <= 16; j++)
+	{
+		if (HW_RELAYS.RELAY_ON_OFF[j] == TRUE)
+			sumDELAY = sumDELAY + HW_RELAYS.RELAY_DELAY_VALUE[j];
+	} // end-for
+
+	// 02.20.09 answer[] has data display with [1] on LEFT LSB
+	// 02.20.09 FLIP answer[] to display [1] with RIGHT LSB
+	// for (j=0; j<16; j++) {
+	//   answer_flip[15-j] = answer[j];
+	//   }
+	// answer_flip[16] = 0 ;
+
+	// 02.20.09
+	// sprintf(BUFFERS.DISPLAY_LINE,"%s,%8.2f ps\r\n",answer,sumDELAY); // 09.01.08 ns to ps
+
+	// 09.11.2017
+	// DO NOT DISPLAY sumDELAY because it is not exactly accurate (reverse lookup of
+	// PIN settings could have duplicate entries  of same PIN settings across multiple
+	// delay settings
+
+	// 10.03.17 report only LSB on right so remove this line
+	// sprintf(BUFFERS.DISPLAY_LINE,"%s %s \r\n",answer, answer_LSB_RIGHT);
+
+	// 10.03.17 report ONLY with LSB ON RIGHT SIDE
+	sprintf(BUFFERS.DISPLAY_LINE, "%s \r\n", answer_LSB_RIGHT);
+
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+} // cmdPINQ
+
+void XSPDM_cmdCTSTRQ(void)
+{
+	//	/*------------------------------------------------------------------------------
+	//	Description	:	Returns the binary value from CTSTORE table entry. If no arg2 entry, then return
+	//					1 = CTSTORE in-memory table in use or 0 = do NOT use in-memory CTSTORE table
+	//	Args		:   None.
+	//	Returns		:
+	//	Prereq		:   None.
+	//	Globals		:
+	//	Notes		:   None.
+	// 11.02.10 	: 	CODE VERIFIED
+	//------------------------------------------------------------------------------*/
+	//
+
+	unsigned int BINARY_PATTERN;
+	int value;
+
+	if (strlen(cmdARG2) != 0)
+	{
+		value = (unsigned int)atoi(cmdARG2);
+		// 02.04.09
+		if ((value >= 1) && (value <= 5120))
+		{
+			BINARY_PATTERN = g_NVParameters.nv_cal_table[value];
+		}
+		else
+		{
+			BINARY_PATTERN = 0;
+		}
+	}
+	else
+	{
+		value = 0;
+		BINARY_PATTERN = 0;
+		// 10.22.08 CTSTORE? with no arguments, then return 1=if using cal table or 0=NOT using cal table
+		if (GLOBAL_SETTINGS.USE_CAL_TABLE)
+		{
+			BINARY_PATTERN = TRUE;
+		}
+	} // end-else-if
+
+	// if value is -1 or cmdARG2 == "info" then display info string else display the binary pattern
+	// 10.04.17
+
+	if ((value == -1) || (strcmp(cmdARG2, "INFO") == 0))
+	{
+		// 02.04.09
+		//-1 therefore display string from NVRAM INFO
+		sprintf(BUFFERS.DISPLAY_LINE, "%s\r\n", g_NVParameters.nv_cal_info);
+		SYSTEM_OutputQueryResponse();
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	}
+	else
+	{
+		sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", BINARY_PATTERN);
+		SYSTEM_OutputQueryResponse();
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	}
+
+} // cmdCTSTRQ
+
+void XSPDM_cmdCTSTOREM(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	: 	Handles CTSTOREM for CTSTORE MULTIPLE VALUES
+	Arguments	:	cmdARG2
+	Returns		:
+	Prereq		:
+	Globals		:
+	Notes		: 	CTSTOREM Location a,b,c,d,e,f, ...
+				: 	store multiple entries a,b,c,d,e,f,,.. starting at Location
+				:	in the CTSTORE TABLE
+//------------------------------------------------------------------------------*/
+	// cmdARG2 has the starting location to store the multiple values
+	// BUFFERS.INPUT_COMMAND_LINE [] has the current entire command line as read in from GPIB,ENET,-or-SERIAL
+	// scans BUFFERS.INPUT_COMMAND_LINE [] until it finds a semicolon and returns its position
+	// 06.19.21 BUG FIX ... DO NOT USE PARSE VALUE ... parse values correctly in download table from host
+
+	int _Index, _IndexSpaceOne, _IndexSpaceTwo;
+	int _IndexFirstCharEntryValue;
+	int _EntryValueIndex;
+	int _Length;
+	int _LengthOfEntireBuffer;
+	int _IndexCTSTORE;
+	unsigned int _EachEntry; // DECIMAL INTEGER FOR XS-100
+
+	char StrStartingIndexCTSTORE[6] = {0}; // ALL NUL Characters
+	char StrEachEntry[7] = {0};			   // ALL NUL Characters
+	int _CharPos;
+	int _j;
+
+	_Index = 0;
+	_IndexSpaceOne = 0;
+	_IndexSpaceTwo = 0;
+
+	// memset(_StartingIndexCTSTORE, 0x00, sizeof(_StartingIndexCTSTORE));
+	// memset(_EachEntry, 0x00, sizeof(_EachEntry));
+
+	_LengthOfEntireBuffer = strlen(BUFFERS.INPUT_COMMAND_LINE);
+
+	// find the first space, then 1 thru first space location is CTSTOREM
+	// find the second space, then first space thru second space is location
+	// second space to next comma is first value
+	// first comma and next comma is second value ... etc...
+	// this method also assumes there are NO EXTRA SPACES IN THE ENTIRE STRING BUFFERS.INPUT_COMMAND_LINE
+
+	_IndexSpaceOne = -1;
+	_IndexSpaceTwo = -1;
+	for (_Index = 0; _Index < _LengthOfEntireBuffer; _Index++)
+	{
+		if (BUFFERS.INPUT_COMMAND_LINE[_Index] == ' ')
+		{
+			if (_IndexSpaceOne == -1)
+			{
+				_IndexSpaceOne = _Index + 1; // point to the first character of the data value for the index
+			}
+			else
+			{
+				if (_IndexSpaceTwo == -1)
+				{ // point to space char after the data value
+					_IndexSpaceTwo = _Index;
+					break; // break the for loop since the second space is found
+				}
+			}
+		} // END-if
+	}	  // end-for
+
+	_Length = _IndexSpaceTwo - _IndexSpaceOne; // # of chars in the data value
+
+	if (_Length >= _LengthOfEntireBuffer)
+	{
+		INSTRUMENT.stateERROR = TRUE;
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+	}
+
+	_CharPos = 0;
+	for (_j = _IndexSpaceOne; _j < _IndexSpaceTwo; _j++)
+	{
+		StrStartingIndexCTSTORE[_CharPos++] = BUFFERS.INPUT_COMMAND_LINE[_j];
+	}
+	_IndexCTSTORE = atoi(StrStartingIndexCTSTORE);
+
+	if ((_IndexCTSTORE < 0) || (_IndexCTSTORE > SIZE_CAL_TABLE - 1))
+	{
+		INSTRUMENT.stateERROR = TRUE;
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		return;
+	}
+
+	// now starting from _IndexSpaceTwo, get all the values separated by a comma
+
+	_IndexFirstCharEntryValue = _IndexSpaceTwo + 1; // point to the first char in the data value
+	_EntryValueIndex = _IndexSpaceTwo + 1;			// point to the first char in the data value
+
+	for (_Index = _IndexSpaceTwo + 1; _Index < _LengthOfEntireBuffer; _Index++)
+	{
+		if ((BUFFERS.INPUT_COMMAND_LINE[_Index] == ',') || (_Index == _LengthOfEntireBuffer - 1))
+		{ // check if comma or LAST CHAR IN BUFFER
+
+			if (_Index == _LengthOfEntireBuffer - 1)
+			{
+				_Length = _Index + 1 - _IndexFirstCharEntryValue; // add ONE because last char (not a comma)
+			}
+			else
+			{
+				_Length = _Index - _IndexFirstCharEntryValue;
+			}
+
+			// EXTRACT A VALUE STARTING FROM INDEX _IndexFirstCharEntryValue AND LENGTH OF _Length CHARACTERS
+			_CharPos = 0;
+			for (_j = _IndexFirstCharEntryValue; _j < _IndexFirstCharEntryValue + _Length; _j++)
+			{
+				StrEachEntry[_CharPos++] = BUFFERS.INPUT_COMMAND_LINE[_j];
+			}
+			_EachEntry = atoi(StrEachEntry);
+
+			// Clear out and update for the next go around
+			_IndexFirstCharEntryValue = _Index + 1;
+			memset(StrEachEntry, 0x00, sizeof(StrEachEntry));
+
+			// 04.28.22 FOR XS-100, EACH ENTRY IS A DECIMAL VALUE OF THE RAW BINARY PATTERN TO SET PIN DIODES
+			if ((_IndexCTSTORE >= 0) && (_IndexCTSTORE <= SIZE_CAL_TABLE - 1))
+			{
+				g_NVParameters.nv_cal_table[_IndexCTSTORE] = _EachEntry;
+				_IndexCTSTORE = _IndexCTSTORE + 1;
+				_EntryValueIndex = _Index + 1;
+			}
+		}
+	} // end-for
+
+	INSTRUMENT.stateERROR = FALSE;
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+} // end cmdCSTOREM
+
+void XSPDM_cmdCTSTOREMQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	: Handles CTSTOREMQ query
+				: display 10 data entires starting at location index
+				: e.g. CTSTOREM? Location
+				: returns: a,b,c,d,e,f,g,h,i,j
+				: data values from CTSTORE CAL TABLE
+	Arguments   : cmdARG2
+	Returns     :
+	Prereq      :
+	Globals     :
+   Notes    	: CTSTOREM Location a,b,c,d,e,f, ...
+				: store multiple entries a,b,c,d,e,f,,.. starting at Location
+				: in the CTSTORE TABLE
+//------------------------------------------------------------------------------*/
+
+	int _IndexCTSTORE;
+	int _i;
+	char _FinalDisplayLine[128];
+	char _EachEntry[10];
+	int _NumberOfEntries;
+
+	// cmdARG2 has the starting location
+	// cmdARG3 has number of entries to display else default is 20
+
+	if (strlen(cmdARG3) != 0)
+	{
+		_NumberOfEntries = (unsigned int)atoi(cmdARG3);
+		if ((_NumberOfEntries <= 0) || (_NumberOfEntries > 20))
+		{
+			_NumberOfEntries = 20;
+		}
+	}
+	else
+	{
+		_NumberOfEntries = 20;
+	}
+
+	if (strlen(cmdARG2) != 0)
+	{
+		_IndexCTSTORE = (unsigned int)atoi(cmdARG2); // use this as the index
+		if ((_IndexCTSTORE >= 0) && (_IndexCTSTORE <= SIZE_CAL_TABLE - 1))
+		{
+
+			// get 10 data values starting at _IndexCTSTORE
+
+			for (_i = 0; _i < _NumberOfEntries; _i++)
+			{
+				if ((_IndexCTSTORE + _i) >= (SIZE_CAL_TABLE))
+				{ // 6251 is invalid
+					break;
+				}
+				sprintf(_EachEntry, "%d", g_NVParameters.nv_cal_table[_IndexCTSTORE + _i]);
+				strcat(_FinalDisplayLine, _EachEntry);
+				memset(_EachEntry, 0x00, sizeof(_EachEntry));
+				if ((_i != (_NumberOfEntries - 1)) && ((_IndexCTSTORE + _i) != (SIZE_CAL_TABLE - 1)))
+				{
+					strcat(_FinalDisplayLine, ",");
+				}
+			} // end for
+			// sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n",_TableEntry);
+			strcat(_FinalDisplayLine, "\r\n");
+			strcpy(BUFFERS.DISPLAY_LINE, _FinalDisplayLine);
+			SYSTEM_OutputQueryResponse();
+			INSTRUMENT.stateERROR = FALSE;
+			INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		}
+	}
+	else
+	{
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	} // end-else-if
+
+} // end cmdCSTOREMQ
+
+void XSPDM_cmdHW_TRGEDGE(void)
+{
+
+	/*------------------------------------------------------------------------------
+//	DESCRIPTION	:	Sets the INPUT EXTERNAL HW TRIGGER EDGE MODE (0 = none, 1= + edge, 2 = - edge)
+//					to detect the edge type to TRIGGER. Sets the XIRQ Interrupt Type.
+	Arguments	:  	cmdARG2
+	Returns		:  	XS_EXT_HW_TRIGGER_TYPE
+	Prereq		:  	cmdARG2 has type of edge
+	Globals		:
+	Notes		: 	HWTRIG type COMMAND
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+	switch (input_value)
+	{
+
+	case NONE_EDGE:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE = FALSE;
+		break;
+		//      case ENABLE:  // 1 = ENABLE == RISE_EDGE
+
+	case RISE_EDGE:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE = RISE_EDGE; // 2
+		break;
+
+		//      case RISE_EDGE:	// + edge
+		//      	XSPDM_EXT_HW_TRIGGER_TYPE = RISE_EDGE;
+		//			break;
+
+	case FALL_EDGE:											// FALL = 1
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE = FALL_EDGE; // 1
+		break;
+
+	case BOTH_EDGE:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE = BOTH_EDGE;
+		break;
+
+	default:
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+		break;
+	} // end-switch
+
+	GLOBAL_SETTINGS.XS_XIRQ_EDGE_TYPE = GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE;
+
+#if defined(OLD_PDM_CODE)
+	XIRQ0OnOff(0); // disable so can program it again! 11.04.08
+
+	// Initialize external interrupt
+	XIRQ0Init(EXT_HW_TRIGGER); // setup callback function
+	XIRQ0OnOff(1);			   // enable interrupt
+
+#endif
+
+	// 05.05.22 NEED TO DISABLE FIRST SO CAN PROGRAM IT AGAIN ?
+	// ?? XIRQ0OnOff(0); //disable so can program it again! 11.04.08
+
+	// 05.05.22
+	HWIO_Initialize_XIRQ(GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_TYPE);
+
+	// RESET THIS COUNTER
+	GLOBAL_SETTINGS.XS_NUM_EXT_HW_DETECTED = 0;
+
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	INSTRUMENT.stateERROR = FALSE;
+} // end cmdHW_TRGEDGE
+
+void XSPDM_cmdSW_SET_CYCLES(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	SETS # OF CYCLES (FULL SWEEPS TO COMPLETE) SWCYC (REPLACES SWCOUNT)
+	Arguments	:	cmdARG2
+	Returns		:	XS_SW_COUNT
+	Prereq		:	None.
+	Globals		:	XS_SW_COUNT
+	Notes      	:
+	//------------------------------------------------------------------------------*/
+	//
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+	if ((input_value >= 0) && (input_value <= max_SW_COUNT))
+	{
+		GLOBAL_SETTINGS.XS_SW_COUNT = input_value;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+	}
+	else
+	{
+		GLOBAL_SETTINGS.XS_SW_COUNT = def_SW_COUNT; // DEFAULT VALUE //
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	}
+} // end cmdSWCOUNT
+
+void XSPDM_cmdSW_CYCLESQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	HANDLES SWCYC? QUERY (# OF CYCLES TO COMPLETE QUERY)
+	Arguments	:	REPLACES SWCOUNT?
+	Returns		:  	BUFFERS.DISPLAY_LINE,XS_SW_COUNT
+	Prereq		:
+	Globals		: 	XS_SW_COUNT
+	Notes		: 	changed from XS_SW_COUNT to XS_SW_COUNT
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_COUNT);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+} // end cmdSWCOUNTQ
+
+void XSPDM_cmdSWD_SET_START(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Set the starting delay value in a delay sweep
+	Arguments	:  	cmdARG2
+	Returns		:
+	Prereq		:  	cmdARG2
+	Globals		: 	cmdARG2, XS_SW_D_START
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+
+	if ((input_value >= 0) && (input_value <= max_SW_D_START))
+	{
+		GLOBAL_SETTINGS.XS_SW_D_START = input_value;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+	}
+	else
+	{
+		GLOBAL_SETTINGS.XS_SW_D_START = def_SW_D_START; // DEFAULT VALUE //
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	}
+} // end cmdSWDSTART (period)
+
+void XSPDM_cmdSWD_STARTQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Handles swstart? command to display the start delay value for
+					sweep frequency.
+	Arguments	:
+	Returns		:  	BUFFERS.DISPLAY_LINE,XS_SW_D_START
+	Prereq		:
+	Globals		: 	XS_SW_D_START
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_D_START);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+} // end XSPDM_cmdSWDSTARTQ
+
+void XSPDM_cmdSWD_SET_STOP(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:  Set the STOP value for delay sweep
+	Arguments	:	cmdARG2
+	Returns		:  XS_SW_D_STOP
+	Prereq		:
+	Globals		: 	XS_SW_D_STOP
+	Notes			: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+
+	if ((input_value >= 0) && (input_value <= max_SW_D_STOP))
+	{
+		GLOBAL_SETTINGS.XS_SW_D_STOP = input_value;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+	}
+	else
+	{
+		GLOBAL_SETTINGS.XS_SW_D_STOP = def_SW_D_STOP; // DEFAULT VALUE //
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	}
+} // end XSPDM_cmdSWDSTP (period)
+
+void XSPDM_cmdSWD_STOPQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Handles SWDSTOP? query to display the stop delay sweep value
+	Arguments	:	cmdARG2
+	Returns		:  	BUFFERS.DISPLAY_LINE,XS_SW_D_STOP
+	Prereq		:
+	Globals		: 	XS_SW_D_STOP
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_D_STOP);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+} // end XSPDM_cmdSWD_STOPQ
+
+void XSPDM_cmdSWD_SET_STEP(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:  Set the STEP value for delay sweep
+	Arguments	:	cmdARG2
+	Returns		:  XS_SW_STEP
+	Prereq		:
+	Globals		: 	XS_SW_STEP
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+	if ((input_value != 0) && (input_value >= (-1 * max_SW_STEP)) && (input_value <= max_SW_STEP))
+	{
+		GLOBAL_SETTINGS.XS_SW_STEP = input_value;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+	}
+	else
+	{
+		GLOBAL_SETTINGS.XS_SW_STEP = def_SW_STEP; // DEFAULT VALUE //
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	}
+} // end XSPDM_cmdSWDSTEP
+
+void XSPDM_cmdSWD_STEPQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Set the STEP value query for delay sweep
+	Arguments	:  	cmdARG2
+	Returns		:  	XS_SW_STEP
+	Prereq		:
+	Globals		: 	XS_SW_STEP
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_STEP);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+} // end XSPDM_cmdSWD_STEPQ
+
+void XSPDM_cmdSWD_SET_RATE(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Set the step RATE value for delay sweep
+	Arguments	:  	cmdARG2
+	Returns		:  	XS_SW_D_RATE
+	Prereq		:
+	Globals		:  	XS_SW_D_RATE
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	int input_value;
+
+	GLOBAL_SETTINGS.XS_SW_D_RATE = input_value;
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+	input_value = atoi(cmdARG2);
+	if ((input_value >= 0) && (input_value <= max_SW_D_RATE))
+	{ // 11.07.10 change from != to >= 0
+		GLOBAL_SETTINGS.XS_SW_D_RATE = input_value;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+	}
+	else
+	{
+		GLOBAL_SETTINGS.XS_SW_D_RATE = def_SW_D_RATE; // DEFAULT VALUE //
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+	}
+} // end XSPDM_cmdSWDRATE (period)
+
+void XSPDM_cmdSWD_RATEQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Handles SWDRATE? query to display the update rate for delay sweep
+	Arguments	:	cmdARG2
+	Returns		:  	BUFFERS.DISPLAY_LINE,XS_SW_D_RATE
+	Prereq		:
+	Globals		: 	XS_SW_D_RATE
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_D_RATE);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+} // end XSPDM__RATEQ
+
+void XSPDM_cmdSW_SET_ROLL(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	: 	Set the SWEEP ROLLOVER TO ON OR OFF.
+					Rollover is after the sweep cycle is completed and whether to repeat or not
+	Arguments	:	cmdARG2
+	Returns		:  	stateSWEEP_ROLLOVER = TRUE or FALSE
+	Prereq		:
+	Globals		: 	stateDEVICE_DISPLAY_NS = TRUE (NS MODE) or = FALSE (PS MODE)
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	if ((strcmp(cmdARG2, "ON") == 0) || (strcmp(cmdARG2, "on") == 0))
+	{
+		// set device display mode to NS
+		INSTRUMENT.stateSWEEP_ROLLOVER = TRUE;
+	}
+	if ((strcmp(cmdARG2, "OFF") == 0) || (strcmp(cmdARG2, "off") == 0))
+	{
+		// set device display mode to PS
+		INSTRUMENT.stateSWEEP_ROLLOVER = FALSE;
+	}
+	INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+} // cmdSWROLL
+
+void XSPDM_cmdSW_ROLLQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Returns the state of the stateSWEEP_ROLLOVER mode is ON or OFF
+					Rollover is after the sweep cycle is completed and whether to repeat or not
+	Arguments	:	cmdARG2
+	Returns		:  	BUFFERS.DISPLAY_LINE
+	Prereq		:
+	Globals		: 	stateSWEEP_ROLLOVER
+	Notes		: 	None.
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	if (INSTRUMENT.stateSWEEP_ROLLOVER)
+	{
+		sprintf(BUFFERS.DISPLAY_LINE, "ON\r\n");
+	} // end-if
+	else
+	{
+		sprintf(BUFFERS.DISPLAY_LINE, "OFF\r\n");
+	} // end-else-if
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR; // CLEAR THIS OUT FOR NEXT TIME
+} // XSPDM_cmdSW_ROLLQ
+
+void XSPDM_cmdSW_SET_TYPE(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	set the sweep type:
+					to 0x00 NONE
+					to 0x01 EXEC_CMD
+					to 0x02 SWMNEXT 	--sweep across delay settings from in-memory trigger table) and triggered by SWEEP2 command
+					to 0x03 SWMSWEEP  --(hardware sweep) and triggered by SWEEP2 command
+					to 0x04 SWDNEXT   --
+					to 0x05 SWDSWEEP	--
+	Arguments	:	cmdARG2
+	Returns		: 	XS_SW_TYPE
+	Prereq		:
+	Globals		:	XS_SW_TYPE
+	Notes		:
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+
+	if ((input_value >= 0) && (input_value < SWTYPE_CMD_LIMIT))
+	{
+		GLOBAL_SETTINGS.XS_SW_TYPE = input_value;
+		INSTRUMENT.stateERROR = FALSE;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	}
+	else
+	{
+		INSTRUMENT.stateERROR = TRUE;
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+	} // end
+
+} // end XSPDM_cmdSW_TYPE
+
+void XSPDM_cmdSW_TYPEQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Handles SWTYPE SWEEP TYPE SETTING query SWEEP?
+	Arguments	:	cmdARG2
+	Returns		:  	BUFFERS.DISPLAY_LINE,XS_SW_TYPE
+	Prereq		:
+	Globals		: 	XS_SW_TYPE
+	Notes		:
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_SW_TYPE);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+} // end XSPDM_cmdSW_TYPEQ
+
+void XSPDM_cmdXS_SWEEP(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	HW2 SWEEP (THIS IS THE FINAL SWEEP COMMAND TO USE IN FINAL EDITION)
+	Arguments	:	XS_SW_TYPE
+				:
+	Returns		:
+	Prereq		:	None.
+	Globals		:
+// Notes:      	:	Strategy 1 directly sets the delay and will block until completed.
+// 				:	06.18.09 added XS_SWEEP_CYCLES to indicate # of sweep cycles completed
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+
+	switch (GLOBAL_SETTINGS.XS_SW_TYPE)
+	{
+
+	case SWMNEXT_CMD:
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		if (!INSTRUMENT.stateSWM_CURR_SWEEPING)
+		{
+			GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+			INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;
+		}
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_M_RATE;
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case SWMSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE;		  // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_M_RATE;
+		INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case SWDNEXT_CMD:
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		if (!INSTRUMENT.stateSWD_CURR_SWEEPING)
+		{
+			GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+			INSTRUMENT.stateSWD_CURR_SWEEPING = TRUE;
+		}
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_D_RATE;
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case SWDSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE;		  // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_D_RATE;
+		INSTRUMENT.stateSWD_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case H_SWMNEXT_CMD:
+		if (!INSTRUMENT.stateSWM_CURR_SWEEPING)
+		{
+			GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+			INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;
+		}
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case H_SWMSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case H_SWDNEXT_CMD:
+		if (!INSTRUMENT.stateSWD_CURR_SWEEPING)
+		{
+			GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+			INSTRUMENT.stateSWD_CURR_SWEEPING = TRUE;
+		}
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case H_SWDSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE; // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		INSTRUMENT.stateSWD_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		break;
+
+	case SWFMSWEEP_CMD:									  // 11.10.10 for FAST memory sweep with no waiting for MS timer and uses direct PD setting
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE;		  // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_M_RATE;
+		INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		// 11.10.10 add FAST MODE
+		INSTRUMENT.stateSWEEP_TRIGGER = TRUE; // SET THE FIRST TRIGGER IN FAST MODE
+		break;
+
+	case H_SWFMSWEEP_CMD:
+		break;
+
+	case SWFDSWEEP_CMD:									  // 11.10.10 for FAST memory sweep with no waiting for MS timer and uses direct PD setting
+		GLOBAL_SETTINGS.XS_MS_WAIT_START_TIME = MS_TIMER; // set this to now to get this started
+		GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE;		  // set this so next trigger starts the sweep!
+		GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = TRUE;
+		GLOBAL_SETTINGS.XS_MS_WAIT_TIME = GLOBAL_SETTINGS.XS_SW_D_RATE;
+		INSTRUMENT.stateSWM_CURR_SWEEPING = TRUE;		// indicate in SWEEPING MODE
+		GLOBAL_SETTINGS.XS_SWEEP_CYCLES = 0;			// 01.26.10
+		GLOBAL_SETTINGS.XS_SW_DEL_SET_COUNT = 0;		// # of delay settings recorded
+		GLOBAL_SETTINGS.XS_START_DELAY_TIME = MS_TIMER; // 11.07.10 record start time of entire sweep to be used with dtime?
+		// 11.10.10 add FAST MODE
+		INSTRUMENT.stateSWEEP_TRIGGER = TRUE; // SET THE FIRST TRIGGER IN FAST MODE
+		break;
+
+	case H_SWFDSWEEP_CMD:
+		break;
+
+	} // end-case-switch
+
+} // end cmdHW_TWO_SWEEP(void)
+
+void XSPDM_cmdSW_STOP(void)
+{
+	/*------------------------------------------------------------------------------
+   Description :  Stop the current SWEEP that is executing
+   Arguments   :  XS_SW_TYPE
+   Returns     :
+   Prereq      :  None.
+   Globals     :  INSTRUMENT.stateSWM_CURR_SWEEPING and INSTRUMENT.stateSWD_CURR_SWEEPING
+   Notes:      :
+//------------------------------------------------------------------------------*/
+
+	INSTRUMENT.stateSWM_CURR_SWEEPING = FALSE;
+	INSTRUMENT.stateSWD_CURR_SWEEPING = FALSE;
+	GLOBAL_SETTINGS.XS_MS_SWEEP_ENABLED = FALSE;
+	INSTRUMENT.stateERROR = FALSE;
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+	GLOBAL_SETTINGS.XS_FIRST_TRIGGER = TRUE;
+	GLOBAL_SETTINGS.XS_REMOTE_LOCAL_MODE = LOCAL;
+
+} // XSPDM_cmdSW_STOP
+
+void XSPDM_cmdSW_SET_TRIG(void)
+{
+	/*------------------------------------------------------------------------------
+//	DESCRIPTION	:	Sets the action type with triggered via EXT HARDWARE TRIGGER TRIGGER
+//					XS_EXT_HW_TRIGGER_ACTION = ...
+// 	ARGS			:	None.
+// 	RETURNS		:
+// 	PRE_REQ		:
+// 	GLOBALS		:
+// 	NOTES		:	TRIGRSET type COMMAND
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	int input_value;
+
+	input_value = atoi(cmdARG2);
+
+	switch (input_value)
+	{
+
+	case NONE:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = NONE;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case EXEC_CMD: // + edge
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = EXEC_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case SWMNEXT_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = SWMNEXT_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case SWMSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = SWMSWEEP_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case SWDNEXT_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = SWDNEXT_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case SWDSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = SWDSWEEP_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case H_EXEC_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = H_EXEC_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case H_SWMNEXT_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = H_SWMNEXT_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case H_SWMSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = H_SWMSWEEP_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case H_SWDNEXT_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = H_SWDNEXT_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	case H_SWDSWEEP_CMD:
+		GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION = H_SWDSWEEP_CMD;
+		INSTRUMENT.stateERROR_CODE = NO_ERROR;
+		INSTRUMENT.stateERROR = FALSE;
+		break;
+
+	default:
+		INSTRUMENT.stateERROR_CODE = INVALID_ARG;
+		INSTRUMENT.stateERROR = TRUE;
+		break;
+	} // end-switch
+
+} // end cmdTRIGSET
+
+void XSPDM_cmdTRIGQ(void)
+{
+	/*------------------------------------------------------------------------------
+	Description	:	Query HWTRIG? to display the XS_EXT_HW_TRIGGER_ACTION
+	rguments	:
+	Returns		:  	DISPLAY_LINE,XS_EXT_HW_TRIGGER_ACTION
+	Prereq		:
+	Globals		: 	XS_EXT_HW_TRIGGER_ACTION
+	Notes		:
+// 11.02.10 	: 	CODE VERIFIED
+//------------------------------------------------------------------------------*/
+	//
+
+	sprintf(BUFFERS.DISPLAY_LINE, "%d\r\n", GLOBAL_SETTINGS.XS_EXT_HW_TRIGGER_ACTION);
+	SYSTEM_OutputQueryResponse();
+	INSTRUMENT.stateERROR_CODE = NO_ERROR;
+
+} // end XSPDM_cmdTRIGQ
+
+// end of code.
+
+/*** BeginHeader */
+#endif
+/*** EndHeader */

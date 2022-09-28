@@ -1,0 +1,429 @@
+/* START LIBRARY DESCRIPTION ******************************************
+*  File        : X_SER_NET_STATUS.LIB
+*   Description : Controls the network status signal required by the LXI v1.2 spec (section 8.11)
+*   Project     : Colby Instruments Programmable Delay Line X SERIES
+*   Date           : MAY 17, 2021
+*                  : Copyright(c) 2021 Colby Instruments, Bellevue, WA
+*   NOTES:      :
+*
+END DESCRIPTION ***********************************************************/
+
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+// BUILD 2103 PRODUCTION LIB ***************************************************
+
+// RD02 THIS IS FOR THE VERSION FOR THE PDL-200A WHERE THE SPECIAL LED BAR GRAPH HAS AN ADDITIONAL LED FOR LAN STATUS
+// RD02 INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS WAS ADDED TO INDICATE THE STATUS OF THE LAN AND LED
+
+// BUILD 2106 PRODUCTION LIB ***************************************************
+// BUILD 2106 PRODUCTION LIB ***************************************************
+// BUILD 2106 PRODUCTION LIB ***************************************************
+
+// BUILD RD030421 TO IMPLEMENT / TEST    INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS BIT
+// RD030421 UPDATE DISPLAY IN _led_off, _led_red, _led_green
+// 05.03.21 CHANGE TO HW3 FOR shiftRegBarGraphOutputHW3VER1 FROM HW2VER2
+// 05.17.21 XT SYSTEM BUILD - RENAME OF NET_STATUS_B2106_RD030421_HW3RD01.LIB TO X_SER_NET_STATUS_B2109.LIB
+// 07.26.21 X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21 X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 07.26.21 X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 07.30.21 RD073021 BUILD
+// 08.04.21 X SERIES FINAL PRODUCTION CODE VERSION 1.00 BUILD 2109 --------------------------------------------------
+// 08.06.21 RD080621 BUILD
+// 08.17.21 UPDATES TO HWIO_REL APIS, ROUND DOWN BUG AT LAST SECTION (SECTION NOW TURNS OFF FOR TROBONE TO DO REMAINDER)
+
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 08.17.21 X SERIES FINAL PRODUCTION CODE VERSION 1.01 BUILD 2109_RD080621 -----------------------------------------
+// 10.18.21 START BUILD 2112
+
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+// 11.11.21 X SERIES FINAL PRODUCTION CODE VERSION 1.11 BUILD 2112_RD102121 --------------------------------
+
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+// 11.19.21 X SERIES FINAL PRODUCTION CODE VERSION 1.12 BUILD 2112_RD102121_RD111121-------------------------
+
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+// 11.22.21 X SERIES FINAL PRODUCTION CODE VERSION 1.13 BUILD 2203 ------------------------------------------
+
+// 03.30.22 HANDLE XT_BOARD_REV3 TFT_ATTACHED OR XSPDM_ATTACHED FOR LED DISPLAY
+// 08.23.22 COMPARED/MERGED TO B2203 AND TIMING_TEST VERSIONS AND SOURCE CODE VER 1.17 
+
+/*** BeginHeader */
+#ifndef X_SER_NET_STATUS_LIB
+#define X_SER_NET_STATUS_LIB
+/*** EndHeader*/
+
+// Set default storage class
+#class auto
+
+/*** BeginHeader */
+#define NET_STATUS_UNDEF 0
+#define NET_STATUS_NORMAL 1
+#define NET_STATUS_FAULT 2
+#define NET_STATUS_IDENTIFY 3
+
+#define RED_LED_n 5
+#define GREEN_LED_n 4
+
+#define NET_STATUS_REFRESH_INTERVAL_MS 250
+
+//Module Globals
+static int _net_status;
+static int _led_state;
+static int _force_identify;
+static int _force_reset;
+static long _prev_time;
+static int _dhcp_succeeded;
+
+//helper functions
+void _led_off(void);
+void _led_red(void);
+void _led_green(void);
+
+/*** EndHeader*/
+
+/*** BeginHeader NETSTAT_init*/
+void NETSTAT_init(void);
+/*** EndHeader*/
+
+/*--------------------------------------------------------------
+  Function: NETSTAT_init(void)
+  --------------------------------------------------------------
+  Purpose: Initializes the network status indicators
+  ------------------------------------------------------------
+*/
+void NETSTAT_init(void)
+{
+
+    // These were repurposed from the stepper motor controller to serve
+    // as network status indicator signals
+
+    // REMOVE THIS CODE FOR RD03 // THIS WAS FOR HARDWARE IN HW2 BOARD
+    // BitWrPortI(PFDDR, &PFDDRShadow, 1, GREEN_LED_n);
+    // BitWrPortI(PFDDR, &PFDDRShadow, 1, RED_LED_n);
+
+    _led_off();
+
+    // RD03: INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS GLOBAL VARIABLE ADDED
+
+    INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS = FALSE;
+
+    // UPDATE DISPLAY ...
+
+    _net_status = NET_STATUS_UNDEF;
+    _force_identify = 0;
+    _force_reset = 0;
+    _dhcp_succeeded = 0;
+    _prev_time = MS_TIMER - (NET_STATUS_REFRESH_INTERVAL_MS + 1);
+}
+
+/*** BeginHeader NETSTAT_reset*/
+void NETSTAT_reset(void);
+/*** EndHeader*/
+
+void NETSTAT_reset(void)
+{
+    _force_reset = 1;
+}
+
+/*** BeginHeader NETSTAT_tick*/
+void NETSTAT_tick(int force);
+/*** EndHeader*/
+/*--------------------------------------------------------------
+  Function: NETSTAT_tick(force)
+  --------------------------------------------------------------
+  Purpose: Must be called periodically to update the network status
+  ------------------------------------------------------------
+*/
+void NETSTAT_tick(int force)
+{
+
+    if (force || ((MS_TIMER - _prev_time) >= NET_STATUS_REFRESH_INTERVAL_MS))
+    {
+        _prev_time = MS_TIMER;
+    }
+    else
+    {
+        return;
+    }
+
+    //See transition diagram in Section 8.12 of LXI Spec (v1.2)
+    switch (_net_status)
+    {
+    case NET_STATUS_UNDEF:
+        if (!pd_havelink(IF_ETH0) || ENET_HaveIPConflict())
+        {
+            _led_red();
+            _net_status = NET_STATUS_FAULT;
+            return;
+        }
+
+        if (2 == ifpending(IF_ETH0))
+        {
+            _force_identify = 0;
+            _dhcp_succeeded = ENET_GetDHCP();
+            _led_green();
+            _net_status = NET_STATUS_NORMAL;
+            return;
+        }
+        break;
+
+    case NET_STATUS_NORMAL:
+        if (_force_reset)
+        {
+            _force_reset = 0;
+            _force_identify = 0;
+            _dhcp_succeeded = 0;
+            _led_off();
+            _net_status = NET_STATUS_UNDEF;
+            return;
+        }
+
+        if (!pd_havelink(IF_ETH0) || !ifstatus(IF_ETH0) || ENET_HaveIPConflict() || (_dhcp_succeeded && !ENET_GetDHCP()))
+        {
+            _led_red();
+            _net_status = NET_STATUS_FAULT;
+            return;
+        }
+
+        if (_force_identify)
+        {
+            _led_green();
+            _net_status = NET_STATUS_IDENTIFY;
+            return;
+        }
+        break;
+
+    case NET_STATUS_IDENTIFY:
+        if (_force_reset)
+        {
+            _force_reset = 0;
+            _force_identify = 0;
+            _led_off();
+            _net_status = NET_STATUS_UNDEF;
+            return;
+        }
+
+        if (!pd_havelink(IF_ETH0) || !ifstatus(IF_ETH0) || ENET_HaveIPConflict() || (_dhcp_succeeded && !ENET_GetDHCP()))
+        {
+            _led_red();
+            _force_identify = 0;
+            _net_status = NET_STATUS_FAULT;
+            return;
+        }
+
+        if (!_force_identify)
+        {
+            _led_green();
+            _net_status = NET_STATUS_NORMAL;
+            return;
+        }
+        else
+        {
+            //toggle the green led
+            if (_led_state > 0)
+            {
+                _led_off();
+            }
+            else
+            {
+                _led_green();
+            }
+            return;
+        }
+        break;
+
+    case NET_STATUS_FAULT:
+        if (_force_reset)
+        {
+            _force_reset = 0;
+            _force_identify = 0;
+            _dhcp_succeeded = 0;
+            _led_off();
+            _net_status = NET_STATUS_UNDEF;
+            return;
+        }
+
+        if (pd_havelink(IF_ETH0) && ifstatus(IF_ETH0) && !ENET_HaveIPConflict() && !(_dhcp_succeeded && !ENET_GetDHCP()))
+        {
+            _force_identify = 0;
+            _led_green();
+            _net_status = NET_STATUS_NORMAL;
+            return;
+        }
+        break;
+
+    default:
+        _force_reset = 0;
+        _force_identify = 0;
+        _led_off();
+        _net_status = NET_STATUS_UNDEF;
+        return;
+    }
+}
+
+/*** BeginHeader NETSTAT_set_identify*/
+void NETSTAT_set_identify(int id_mode);
+/*** EndHeader*/
+/*--------------------------------------------------------------
+  Function: NETSTAT_set_identify(bool)
+  --------------------------------------------------------------
+  Purpose: Sets whether the net status display is in identify mode
+  ------------------------------------------------------------
+*/
+void NETSTAT_set_identify(int id_mode)
+{
+    if (id_mode != 0)
+    {
+        _force_identify = 1;
+    }
+    else
+    {
+        _force_identify = 0;
+    }
+}
+
+/*** BeginHeader NETSTAT_get_identify*/
+int NETSTAT_get_identify(void);
+/*** EndHeader*/
+/*--------------------------------------------------------------
+  Function: NETSTAT_get_identify(void)
+  --------------------------------------------------------------
+  Purpose: Returns the network status
+  ------------------------------------------------------------
+*/
+int NETSTAT_get_identify(void)
+{
+    return _force_identify;
+}
+
+/*** BeginHeader _led_off*/
+static void _led_off(void);
+/*** EndHeader*/
+//Turns both LEDs off
+static void _led_off(void)
+{
+    // RD03 02.05.21
+    // BitWrPortI(PFDR, &PFDRShadow, 1, GREEN_LED_n);
+    // BitWrPortI(PFDR, &PFDRShadow, 1, RED_LED_n);
+    _led_state = 0;
+    INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS = FALSE;
+
+    // 03.30.22
+    #if !defined(XT_BOARD_REV3)
+    // UPDATE DISPLAY ...ONLY FOR XT_BOARD_REV2 SYSTEM BOARD BARGRAPH IS ATTACHED
+    // RD030421
+    // 05.03.21 change to hw3
+    HWIO_ShiftRegBarGraphOutputXT(INSTRUMENT_SETTINGS.CURRENT_BAR_GRAPH);
+
+    #else
+
+    #if defined(TFT_ATTACHED)
+        // WAS BLACK BUT NOW DO NOTHING 04.01.22
+    #endif
+    #if defined(XSPDM_ATTACHED)
+    #endif
+
+
+    #endif
+}
+
+/*** BeginHeader _led_red*/
+static void _led_red(void);
+/*** EndHeader*/
+static void _led_red(void)
+{
+    // RD03 02.05.21
+    // BitWrPortI(PFDR, &PFDRShadow, 1, GREEN_LED_n);
+    // BitWrPortI(PFDR, &PFDRShadow, 0, RED_LED_n);
+    _led_state = RED_LED_n;
+    INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS = FALSE;
+
+    // 03.30.22
+    #if !defined(XT_BOARD_REV3)
+    // UPDATE DISPLAY ...ONLY FOR XT_BOARD_REV2 SYSTEM BOARD BARGRAPH IS ATTACHED
+    // RD030421
+    // 05.03.21 change to hw3
+    HWIO_ShiftRegBarGraphOutputXT(INSTRUMENT_SETTINGS.CURRENT_BAR_GRAPH);
+    #else
+
+    #if defined(TFT_ATTACHED)
+    gselvp(VIEWPORT_NET);
+    // NET ICON
+    GFX_DrawBitmap(NET_ICON_X, NET_ICON_Y, NET_I_36X36_ICON, 64, 36, G_RED); //   36X36 NETWORK ICON
+    #endif
+    #if defined(XSPDM_ATTACHED)
+    // TURN OFF NETWORK LED WITH A HIGH SIGNAL
+    BitWrPortI(PADR, &PADRShadow, HIGH, XS_LED); // PA5 FOR LED in XS-100
+    #endif
+
+
+    #endif
+
+}
+
+/*** BeginHeader _led_green*/
+static void _led_green(void);
+/*** EndHeader*/
+static void _led_green(void)
+{
+    char _TFT_DisplayLine[30];
+    long _IP_ADDRESS;
+    char _IP_BUFFER[20];
+    unsigned int _PORT_ADDRESS;
+
+    // RD03 02.05.21
+    // BitWrPortI(PFDR, &PFDRShadow, 0, GREEN_LED_n);
+    // BitWrPortI(PFDR, &PFDRShadow, 1, RED_LED_n);
+    _led_state = GREEN_LED_n;
+    INSTRUMENT_SETTINGS.CURRENT_LAN_LED_STATUS = TRUE;
+
+    // 03.30.22
+    #if !defined(XT_BOARD_REV3)
+    // UPDATE DISPLAY ...ONLY FOR XT_BOARD_REV2 SYSTEM BOARD BARGRAPH IS ATTACHED
+    // RD030421
+    // 05.03.21 change to hw3
+    HWIO_ShiftRegBarGraphOutputXT(INSTRUMENT_SETTINGS.CURRENT_BAR_GRAPH);
+    #else
+
+    #if defined(TFT_ATTACHED)
+    gselvp(VIEWPORT_NET);
+    // NET ICON
+    // NEW
+    GFX_DrawBitmap(NET_ICON_X, NET_ICON_Y, NET_I_36X36_ICON, 64, 36, G_GREEN); //   36X36 NETWORK ICON
+
+    _IP_ADDRESS = ENET_GetIP(); // GET THE ACTUAL IP ADDRESS
+    _PORT_ADDRESS = g_NVParameters.nv_port;
+    sprintf(_TFT_DisplayLine,"%s %d", inet_ntoa(_IP_BUFFER, _IP_ADDRESS), _PORT_ADDRESS);
+    // IP ADDRESS
+    gsetpos(NET_LINE1_X, NET_LINE1_Y);
+    gsetcolorf(G_WHITE);
+    gsetcolorb(G_BLACK);
+    gputs(_TFT_DisplayLine);
+
+    // URL ADDRESS AND HOSTNAME
+    gsetpos(NET_LINE2_X, NET_LINE2_Y);
+    gsetcolorf(G_WHITE);
+    gsetcolorb(G_BLACK);
+
+    sprintf(_TFT_DisplayLine,"%s       ",g_NVParameters.nv_hostname);
+    gputs(_TFT_DisplayLine);
+    #endif
+
+    #if defined(XSPDM_ATTACHED)
+    // TURN ON NETWORK LED WITH A LOW SIGNAL
+    BitWrPortI(PADR, &PADRShadow, LOW, XS_LED); // PA5 FOR LED in XS-100
+    #endif
+
+    #endif
+
+}
+
+/*** BeginHeader */
+#endif //NET_STATUS_LIB
+       /*** EndHeader */
