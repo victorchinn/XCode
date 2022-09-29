@@ -95,13 +95,13 @@ class Motor:
     def set_di(self):
         return
 
-	def set_delay(self, _DelaySetting):
+    def set_delay(self,_DelaySetting):
+    	return
+
+    def initialize(self):
 		return
 
-	def initialize(self):
-		return
-
-	def move_to(self, position, overshoot):
+    def move_to(self, position, overshoot):
 		return
 
 	def calibration(self):
