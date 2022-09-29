@@ -1,7 +1,6 @@
- #!/usr/bin/env python
+#!/usr/bin/env python
 
 import time
-
 
 # MOTOR CLASS
 
@@ -11,304 +10,296 @@ I2C = 0
 SPI = 1
 
 AUX_SPI = 256
+OVER_SAMPLE_1 = 0
+
 
 class Motor:
 
     # class to handle all motor commands via com serial port link
-    # BME280 Registers
-
-    _os_ms = [0, 1, 2, 4, 8, 16]
+    # Motor accepts commands to directly control the hybrid stepper motor
+    # using the TWO CHAR commands as specified by Applied Motion
+    # Motor should be called by DelayController
 
     def __init__(self, pi, sampling=OVER_SAMPLE_1, interface=I2C,
-                   bus=1, address=0x76,
-                   channel=0, baud=10000000, flags=0):
-      """
-      Instantiate with the Pi.
-
-
-      Example using I2C, bus 1, address 0x76
-
-      s = BME280.sensor(pi)
-
-
-      Example using main SPI, channel 0, baud 10Mbps
-
-      s = BME280.sensor(pi, interface=SPI)
-
-
-      Example using auxiliary SPI, channel 2, baud 50k
-
-      s = BME280.sensor(pi, sampling=OVER_SAMPLE_4,
-             interface=SPI, channel=2, flags=AUX_SPI, baud=50000)
-
-
-        GPIO       pin  pin    GPIO
-        3V3         1    2      5V
-        2 (SDA)     3    4      5V
-        3 (SCL)     5    6      0V
-        4           7    8      14 (TXD)
-        0V          9   10      15 (RXD)
-        17 (ce1)   11   12      18 (ce0)
-        27         13   14      0V
-        22         15   16      23
-        3V3        17   18      24
-        10 (MOSI)  19   20      0V
-        9 (MISO)   21   22      25
-        11 (SCLK)  23   24      8 (CE0)
-        0V         25   26      7 (CE1)
-                    .......
-        0 (ID_SD)  27   28      1 (ID_SC)
-        5          29   30      0V
-        6          31   32      12
-        13         33   34      0V
-        19 (miso)  35   36      16 (ce2)
-        26         37   38      20 (mosi)
-        0V         39   40      21 (sclk)
+                 bus=1, address=0x76,
+                 channel=0, baud=10000000, flags=0):
         """
-      self.pi = pi
+        Instantiate with the Pi.
 
-      if interface == I2C:
-         self.I2C = True
-      else:
-         self.I2C = False
 
-      self.sampling = sampling
+        Example using I2C, bus 1, address 0x76
+        s = BME280.sensor(pi)
+        Example using main SPI, channel 0, baud 10Mbps
+        s = BME280.sensor(pi, interface=SPI)
 
-      if self.I2C:
-         self.h = pi.i2c_open(bus, address)
-      else:
-         self.h = pi.spi_open(channel, baud, flags)
+        Example using auxiliary SPI, channel 2, baud 50k
+        s = BME280.sensor(pi, sampling=OVER_SAMPLE_4,
+               interface=SPI, channel=2, flags=AUX_SPI, baud=50000)
 
-      self._load_calibration()
+          GPIO       pin  pin    GPIO
+          3V3         1    2      5V
+          2 (SDA)     3    4      5V
+          3 (SCL)     5    6      0V
+          4           7    8      14 (TXD)
+          0V          9   10      15 (RXD)
+          17 (ce1)   11   12      18 (ce0)
+          27         13   14      0V
+          22         15   16      23
+          3V3        17   18      24
+          10 (MOSI)  19   20      0V
+          9 (MISO)   21   22      25
+          11 (SCLK)  23   24      8 (CE0)
+          0V         25   26      7 (CE1)
+                      .......
+          0 (ID_SD)  27   28      1 (ID_SC)
+          5          29   30      0V
+          6          31   32      12
+          13         33   34      0V
+          19 (miso)  35   36      16 (ce2)
+          26         37   38      20 (mosi)
+          0V         39   40      21 (sclk)
+          """
+        self.pi = pi
 
-      self.measure_delay = self._measurement_time(sampling, sampling, sampling)
+        if interface == I2C:
+            self.I2C = True
+        else:
+            self.I2C = False
 
-      self.t_fine = 0.0
-#
-#
+        self.sampling = sampling
+
+        if self.I2C:
+            self.h = pi.i2c_open(bus, address)
+        else:
+            self.h = pi.spi_open(channel, baud, flags)
+
+        self._load_calibration()
+
+        self.measure_delay = self._measurement_time(
+            sampling, sampling, sampling)
+
+        self.t_fine = 0.0
+	#
+    #
     # define using the same API as in original library
 
-    def motor_movemleft():
-        pass    
-
-    def motor_moveright():
-        pass
-    
-    def motor_setzero():
-        pass
-    
-    def motor_setdi():
-        pass
-    
-    def motor_setdelay(_DelaySetting):
-        pass
-    
-    
-    def motor_Initialize(void):
-        pass
-    
-    def motor_MoveToPosition(position, overshoot):
-        pass
-    def motor_Calibration(void):
-        pass
-    def motor_SetDelayDigital(_NewDelaySettingDigital_L):
-        pass
-    
-    def motor_VerifyAndRoundDelay(delay):
-        return
-    
-    def motor_Command(MOTOR_COMMAND _COMMAND, _ARG1, _Wait):
+    def move_left(self):
         return
 
-    def motor_ProcessResponse(_MotorResponseCommandLine):
+    def move_right(self):
         return
 
-    def motor_ParseResponse(_MotorResponseCommandLine):
+    def set_zeroposition(self):
         return
 
+    def set_di(self):
+        return
 
-    def _write_registers(self, data):
-      if self.I2C:
-         self.pi.i2c_write_device(self.h, data)
-      else:
-         for i in range(0, len(data), 2):
-            data[i] &= 0x7F
-         self.pi.spi_xfer(self.h, data)
+	def set_delay(self, _DelaySetting):
+		return
 
-    def _read_registers(self, reg, count):
-      if self.I2C:
-         return self.pi.i2c_read_i2c_block_data(self.h, reg, count)
-      else:
-         c, d = self.pi.spi_xfer(self.h, [reg|0x80] + [0]*count)
-         if c > 0:
-            return c-1, d[1:]
-         else:
-            return c, d
+	def initialize(self):
+		return
 
-    def _load_calibration(self):
+	def move_to(self, position, overshoot):
+		return
 
-      c, d1 = self._read_registers(sensor._calib00, 26)
+	def calibration(self):
+		return
 
-      self.T1 = self._u16(d1, sensor._T1)
-      self.T2 = self._s16(d1, sensor._T2)
-      self.T3 = self._s16(d1, sensor._T3)
+	def set_DelayDigital(self,_NewDelaySettingDigital_L):
+		return
 
-      self.P1 = self._u16(d1, sensor._P1)
-      self.P2 = self._s16(d1, sensor._P2)
-      self.P3 = self._s16(d1, sensor._P3)
-      self.P4 = self._s16(d1, sensor._P4)
-      self.P5 = self._s16(d1, sensor._P5)
-      self.P6 = self._s16(d1, sensor._P6)
-      self.P7 = self._s16(d1, sensor._P7)
-      self.P8 = self._s16(d1, sensor._P8)
-      self.P9 = self._s16(d1, sensor._P9)
+	def verify_and_round(self,delay):
+		return
 
-      self.H1 = self._u8(d1, sensor._H1)
+	def set_command(self,MOTOR_COMMAND, _COMMAND, _ARG1, _Wait):
+		return
 
-      c, d2 = self._read_registers(sensor._calib26, 7)
+	def _process_response(_MotorResponseCommandLine):
+		return
 
-      self.H2 = self._s16(d2, sensor._H2)
+	def _parse_response(_MotorResponseCommandLine):
+		return
 
-      self.H3 = self._u8(d2, sensor._H3)
+	def _write_registers(self, data):
+		if self.I2C:
+			self.pi.i2c_write_device(self.h, data)
+		else:
+			for i in range(0, len(data), 2):
+				data[i] &= 0x7F
+			self.pi.spi_xfer(self.h, data)
 
-      t = self._u8(d2, sensor._xE5)
+	def _read_registers(self, reg, count):
+		if self.I2C:
+			return self.pi.i2c_read_i2c_block_data(self.h, reg, count)
+		else:
+			c, d = self.pi.spi_xfer(self.h, [reg |0x80] + [0]*count)
+			if c > 0:
+				return c-1, d[1:]
+			else:
+				return c, d
 
-      t_l = t & 15
-      t_h = (t >> 4) & 15
+	def _load_calibration(self):
 
-      self.H4 = (self._u8(d2, sensor._xE4) << 4) | t_l
+		c, d1 = self._read_registers(sensor._calib00, 26)
 
-      if self.H4 > 2047:
-         self.H4 -= 4096
+		self.T1 = self._u16(d1, sensor._T1)
+		self.T2 = self._s16(d1, sensor._T2)
+		self.T3 = self._s16(d1, sensor._T3)
 
-      self.H5 = (self._u8(d2, sensor._xE6) << 4) | t_h
+		self.P1 = self._u16(d1, sensor._P1)
+		self.P2 = self._s16(d1, sensor._P2)
+		self.P3 = self._s16(d1, sensor._P3)
+		self.P4 = self._s16(d1, sensor._P4)
+		self.P5 = self._s16(d1, sensor._P5)
+		self.P6 = self._s16(d1, sensor._P6)
+		self.P7 = self._s16(d1, sensor._P7)
+		self.P8 = self._s16(d1, sensor._P8)
+		self.P9 = self._s16(d1, sensor._P9)
 
-      if self.H5 > 2047:
-         self.H5 -= 4096
+		self.H1 = self._u8(d1, sensor._H1)
 
-      self.H6 = self._s8(d2, sensor._H6)
+		c, d2 = self._read_registers(sensor._calib26, 7)
 
-    def _read_raw_data(self):
+		self.H2 = self._s16(d2, sensor._H2)
 
-      # Set oversampling rate and force reading.
+		self.H3 = self._u8(d2, sensor._H3)
 
-      self._write_registers(
-         [sensor._ctrl_hum, self.sampling,
-          sensor._ctrl_meas, self.sampling << 5 | self.sampling << 2 | 1])
+		t = self._u8(d2, sensor._xE5)
 
-      # Measurement delay.
+		t_l = t & 15
+		t_h = (t >> 4) & 15
 
-      time.sleep(self.measure_delay)
+		self.H4 = (self._u8(d2, sensor._xE4) << 4) | t_l
 
-      # Grab reading.
+		if self.H4 > 2047:
+			self.H4 -= 4096
 
-      c, d = self._read_registers(sensor._rawdata, 8)
+		self.H5 = (self._u8(d2, sensor._xE6) << 4) | t_h
 
-      msb = self._u8(d, sensor._t_msb)
-      lsb = self._u8(d, sensor._t_lsb)
-      xlsb = self._u8(d, sensor._t_xlsb)
-      raw_t = ((msb << 16) | (lsb << 8) | xlsb) >> 4
+		if self.H5 > 2047:
+			self.H5 -= 4096
 
-      msb = self._u8(d, sensor._p_msb)
-      lsb = self._u8(d, sensor._p_lsb)
-      xlsb = self._u8(d, sensor._p_xlsb)
-      raw_p = ((msb << 16) | (lsb << 8) | xlsb) >> 4
+		self.H6 = self._s8(d2, sensor._H6)
 
-      msb = self._u8(d, sensor._h_msb)
-      lsb = self._u8(d, sensor._h_lsb)
-      raw_h = (msb << 8) | lsb
+	def _read_raw_data(self):
 
-      return raw_t, raw_p, raw_h
+		# Set oversampling rate and force reading.
 
-    def read_data(self):
-      """
-      Returns data
-      the temperature, pressure, and humidity as a tuple.
+		self._write_registers(
+			[sensor._ctrl_hum, self.sampling,
+			sensor._ctrl_meas, self.sampling << 5 | self.sampling << 2 | 1])
 
-      Each value is a float.
+		# Measurement delay.
 
-      The temperature is returned in degrees centigrade.  The
-      pressure is returned in Pascals.  The humidity is returned
-      as the relative humidity between 0 and 100%.
-      """
+		time.sleep(self.measure_delay)
 
-      raw_t, raw_p, raw_h = self._read_raw_data()
+		# Grab reading.
 
-      var1 = (raw_t/16384.0 - (self.T1)/1024.0) * float(self.T2)
-      var2 = (((raw_t)/131072.0 - (self.T1)/8192.0) *
-              ((raw_t)/131072.0 - (self.T1)/8192.0)) * (self.T3)
+		c, d = self._read_registers(sensor._rawdata, 8)
 
-      self.t_fine = var1 + var2
+		msb = self._u8(d, sensor._t_msb)
+		lsb = self._u8(d, sensor._t_lsb)
+		xlsb = self._u8(d, sensor._t_xlsb)
+		raw_t = ((msb << 16) | (lsb << 8) | xlsb) >> 4
 
-      t = (var1 + var2) / 5120.0
+		msb = self._u8(d, sensor._p_msb)
+		lsb = self._u8(d, sensor._p_lsb)
+		xlsb = self._u8(d, sensor._p_xlsb)
+		raw_p = ((msb << 16) | (lsb << 8) | xlsb) >> 4
 
-      var1 = (self.t_fine/2.0) - 64000.0
-      var2 = var1 * var1 * self.P6 / 32768.0
-      var2 = var2 + (var1 * self.P5 * 2.0)
-      var2 = (var2/4.0)+(self.P4 * 65536.0)
-      var1 = ((self.P3 * var1 * var1 / 524288.0) + (self.P2 * var1)) / 524288.0
-      var1 = (1.0 + var1 / 32768.0)*self.P1
-      if var1 != 0.0:
-         p = 1048576.0 - raw_p
-         p = (p - (var2 / 4096.0)) * 6250.0 / var1
-         var1 = self.P9 * p * p / 2147483648.0
-         var2 = p * self.P8 / 32768.0
-         p = p + (var1 + var2 + self.P7) / 16.0
-      else:
-         p = 0
+		msb = self._u8(d, sensor._h_msb)
+		lsb = self._u8(d, sensor._h_lsb)
+		raw_h = (msb << 8) | lsb
 
-      h = self.t_fine - 76800.0
+		return raw_t, raw_p, raw_h
 
-      h = ( (raw_h - ((self.H4) * 64.0 + (self.H5) / 16384.0 * h)) *
-            ((self.H2) / 65536.0 * (1.0 + (self.H6) / 67108864.0 * h *
-            (1.0 + (self.H3) / 67108864.0 * h))))
+	def read_data(self):
+		"""
+		Returns data
+		the temperature, pressure, and humidity as a tuple.
 
-      h = h * (1.0 - self.H1 * h / 524288.0)
+		Each value is a float.
 
-      if h > 100.0:
-         h = 100.0
-      elif h < 0.0:
-         h = 0.0
+		The temperature is returned in degrees centigrade.  The
+		pressure is returned in Pascals.  The humidity is returned
+		as the relative humidity between 0 and 100%.
+		"""
 
-      return t, p, h
+		raw_t, raw_p, raw_h = self._read_raw_data()
 
-    def cancel(self):
-    
-      """
-      Cancels the sensor and releases resources.
-      """
-      if self.h is not None:
+		var1 = (raw_t/16384.0 - (self.T1)/1024.0) * float(self.T2)
+		var2 = (((raw_t)/131072.0 - (self.T1)/8192.0) *
+				((raw_t)/131072.0 - (self.T1)/8192.0)) * (self.T3)
 
-         if self.I2C:
-            self.pi.i2c_close(self.h)
-         else:
-            self.pi.spi_close(self.h)
+		self.t_fine = var1 + var2
 
-         self.h = None
+		t = (var1 + var2) / 5120.0
 
+		var1 = (self.t_fine/2.0) - 64000.0
+		var2 = var1 * var1 * self.P6 / 32768.0
+		var2 = var2 + (var1 * self.P5 * 2.0)
+		var2 = (var2/4.0)+(self.P4 * 65536.0)
+		var1 = ((self.P3 * var1 * var1 / 524288.0) + (self.P2 * var1)) / 524288.0
+		var1 = (1.0 + var1 / 32768.0)*self.P1
+		if var1 != 0.0:
+			p = 1048576.0 - raw_p
+			p = (p - (var2 / 4096.0)) * 6250.0 / var1
+			var1 = self.P9 * p * p / 2147483648.0
+			var2 = p * self.P8 / 32768.0
+			p = p + (var1 + var2 + self.P7) / 16.0
+		else:
+			p = 0
 
+		h = self.t_fine - 76800.0
+
+		h = ((raw_h - ((self.H4) * 64.0 + (self.H5) / 16384.0 * h)) *
+				((self.H2) / 65536.0 * (1.0 + (self.H6) / 67108864.0 * h *
+										(1.0 + (self.H3) / 67108864.0 * h))))
+
+		h = h * (1.0 - self.H1 * h / 524288.0)
+
+		if h > 100.0:
+			h = 100.0
+		elif h < 0.0:
+			h = 0.0
+
+		return t, p, h
+
+	def cancel(self):
+		"""
+		Cancels the sensor and releases resources.
+		"""
+		if self.h is not None:
+
+			if self.I2C:
+				self.pi.i2c_close(self.h)
+			else:
+				self.pi.spi_close(self.h)
+
+			self.h = None
 
 if __name__ == "__main__":
 
-   import time
+    import time
 #   import BME280
-   import pigpio
+    import pigpio
 
-   pi = pigpio.pi()
+    pi = pigpio.pi()
 
-   if not pi.connected:
-      exit(0)
+    if not pi.connected:
+        exit(0)
 
 #   s = BME280.sensor(pi)
 
-   stop = time.time() + 60
+    stop = time.time() + 60
 
-   while stop > time.time():
-      t, p, h = s.read_data()
-      print("h={:.2f} p={:.1f} t={:.2f}".format(h, p/100.0, t))
-      time.sleep(0.9)
+    while stop > time.time():
+        t, p, h = s.read_data()
+        print("h={:.2f} p={:.1f} t={:.2f}".format(h, p/100.0, t))
+        time.sleep(0.9)
 
 #   s.cancel()
 
-   pi.stop()
-
+    pi.stop()
