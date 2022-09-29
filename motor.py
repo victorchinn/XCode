@@ -7,18 +7,10 @@ import time
 
 # Interface
 
-I2C=0
-SPI=1
+I2C = 0
+SPI = 1
 
-AUX_SPI=256
-
-# Sampling
-
-OVER_SAMPLE_1 = 1
-OVER_SAMPLE_2 = 2
-OVER_SAMPLE_4 = 3
-OVER_SAMPLE_8 = 4
-OVER_SAMPLE_16 = 5
+AUX_SPI = 256
 
 class Motor:
 
@@ -27,7 +19,7 @@ class Motor:
 
     _os_ms = [0, 1, 2, 4, 8, 16]
 
-   def __init__(self, pi, sampling=OVER_SAMPLE_1, interface=I2C,
+    def __init__(self, pi, sampling=OVER_SAMPLE_1, interface=I2C,
                    bus=1, address=0x76,
                    channel=0, baud=10000000, flags=0):
       """
@@ -50,29 +42,29 @@ class Motor:
              interface=SPI, channel=2, flags=AUX_SPI, baud=50000)
 
 
-      GPIO       pin  pin    GPIO
-      3V3         1    2      5V
-      2 (SDA)     3    4      5V
-      3 (SCL)     5    6      0V
-      4           7    8      14 (TXD)
-      0V          9   10      15 (RXD)
-      17 (ce1)   11   12      18 (ce0)
-      27         13   14      0V
-      22         15   16      23
-      3V3        17   18      24
-      10 (MOSI)  19   20      0V
-      9 (MISO)   21   22      25
-      11 (SCLK)  23   24      8 (CE0)
-      0V         25   26      7 (CE1)
-                 .......
-      0 (ID_SD)  27   28      1 (ID_SC)
-      5          29   30      0V
-      6          31   32      12
-      13         33   34      0V
-      19 (miso)  35   36      16 (ce2)
-      26         37   38      20 (mosi)
-      0V         39   40      21 (sclk)
-      """
+        GPIO       pin  pin    GPIO
+        3V3         1    2      5V
+        2 (SDA)     3    4      5V
+        3 (SCL)     5    6      0V
+        4           7    8      14 (TXD)
+        0V          9   10      15 (RXD)
+        17 (ce1)   11   12      18 (ce0)
+        27         13   14      0V
+        22         15   16      23
+        3V3        17   18      24
+        10 (MOSI)  19   20      0V
+        9 (MISO)   21   22      25
+        11 (SCLK)  23   24      8 (CE0)
+        0V         25   26      7 (CE1)
+                    .......
+        0 (ID_SD)  27   28      1 (ID_SC)
+        5          29   30      0V
+        6          31   32      12
+        13         33   34      0V
+        19 (miso)  35   36      16 (ce2)
+        26         37   38      20 (mosi)
+        0V         39   40      21 (sclk)
+        """
       self.pi = pi
 
       if interface == I2C:
@@ -92,32 +84,50 @@ class Motor:
       self.measure_delay = self._measurement_time(sampling, sampling, sampling)
 
       self.t_fine = 0.0
+#
+#
+    # define using the same API as in original library
 
-   def _measurement_time(self, os_temp, os_press, os_hum):
-      ms = ( (1.25  + 2.3 * Motor._os_ms[os_temp]) +
-             (0.575 + 2.3 * Motor._os_ms[os_press]) +
-             (0.575 + 2.3 * Motor._os_ms[os_hum]) )
-      return (ms/1000.0)
+    def motor_movemleft():
+        pass    
 
-   def _u16(self, _calib, off):
-      return (_calib[off] | (_calib[off+1]<<8))
+    def motor_moveright():
+        pass
+    
+    def motor_setzero():
+        pass
+    
+    def motor_setdi():
+        pass
+    
+    def motor_setdelay(_DelaySetting):
+        pass
+    
+    
+    def motor_Initialize(void):
+        pass
+    
+    def motor_MoveToPosition(position, overshoot):
+        pass
+    def motor_Calibration(void):
+        pass
+    def motor_SetDelayDigital(_NewDelaySettingDigital_L):
+        pass
+    
+    def motor_VerifyAndRoundDelay(delay):
+        return
+    
+    def motor_Command(MOTOR_COMMAND _COMMAND, _ARG1, _Wait):
+        return
 
-   def _s16(self, _calib, off):
-      v = self._u16(_calib, off)
-      if v > 32767:
-         v -= 65536
-      return v
+    def motor_ProcessResponse(_MotorResponseCommandLine):
+        return
 
-   def _u8(self, _calib, off):
-      return _calib[off]
+    def motor_ParseResponse(_MotorResponseCommandLine):
+        return
 
-   def _s8(self, _calib, off):
-      v = self._u8(_calib,off)
-      if v > 127:
-         v -= 256
-      return v
 
-   def _write_registers(self, data):
+    def _write_registers(self, data):
       if self.I2C:
          self.pi.i2c_write_device(self.h, data)
       else:
@@ -125,7 +135,7 @@ class Motor:
             data[i] &= 0x7F
          self.pi.spi_xfer(self.h, data)
 
-   def _read_registers(self, reg, count):
+    def _read_registers(self, reg, count):
       if self.I2C:
          return self.pi.i2c_read_i2c_block_data(self.h, reg, count)
       else:
@@ -135,7 +145,7 @@ class Motor:
          else:
             return c, d
 
-   def _load_calibration(self):
+    def _load_calibration(self):
 
       c, d1 = self._read_registers(sensor._calib00, 26)
 
@@ -178,7 +188,7 @@ class Motor:
 
       self.H6 = self._s8(d2, sensor._H6)
 
-   def _read_raw_data(self):
+    def _read_raw_data(self):
 
       # Set oversampling rate and force reading.
 
@@ -210,9 +220,10 @@ class Motor:
 
       return raw_t, raw_p, raw_h
 
-   def read_data(self):
+    def read_data(self):
       """
-      Returns the temperature, pressure, and humidity as a tuple.
+      Returns data
+      the temperature, pressure, and humidity as a tuple.
 
       Each value is a float.
 
@@ -261,7 +272,8 @@ class Motor:
 
       return t, p, h
 
-   def cancel(self):
+    def cancel(self):
+    
       """
       Cancels the sensor and releases resources.
       """
@@ -273,20 +285,6 @@ class Motor:
             self.pi.spi_close(self.h)
 
          self.h = None
-
-# void MOTOR_MoveLeft(void);
-# void MOTOR_MoveRight(void);
-# void MOTOR_SetZero(void);
-# void MOTOR_SetDI(void);
-# //unsigned char MOTOR_SetDelay(float _DelaySetting);
-# void MOTOR_Initialize(void);
-# float MOTOR_MoveToPosition(float position, unsigned int overshoot);
-# short MOTOR_Calibration(void);
-# unsigned char MOTOR_SetDelayDigital(long _NewDelaySettingDigital_L);
-# unsigned char MOTOR_VerifyAndRoundDelay(float *del);
-# void MOTOR_Command(enum MOTOR_COMMAND _COMMAND, long _ARG1, short int _Wait);
-# void MOTOR_ProcessResponse(char *_MotorResponseCommandLine);
-# long MOTOR_ParseResponse(char *_MotorResponseCommandLine);
 
 
 
