@@ -79,7 +79,7 @@ class Motor:
             sampling, sampling, sampling)
 
         self.t_fine = 0.0
-	#
+    #
     #
     # define using the same API as in original library
 
@@ -96,189 +96,189 @@ class Motor:
         return
 
     def set_delay(self,_DelaySetting):
-    	return
+        return
 
     def initialize(self):
-		return
+        return
 
     def move_to(self, position, overshoot):
-		return
+        return
 
-	def calibration(self):
-		return
+    def calibration(self):
+        return
 
-	def set_DelayDigital(self,_NewDelaySettingDigital_L):
-		return
+    def set_DelayDigital(self,_NewDelaySettingDigital_L):
+        return
 
-	def verify_and_round(self,delay):
-		return
+    def verify_and_round(self,delay):
+        return
 
-	def set_command(self,MOTOR_COMMAND, _COMMAND, _ARG1, _Wait):
-		return
+    def set_command(self,MOTOR_COMMAND, _COMMAND, _ARG1, _Wait):
+        return
 
-	def _process_response(_MotorResponseCommandLine):
-		return
+    def _process_response(_MotorResponseCommandLine):
+        return
 
-	def _parse_response(_MotorResponseCommandLine):
-		return
+    def _parse_response(_MotorResponseCommandLine):
+        return
 
-	def _write_registers(self, data):
-		if self.I2C:
-			self.pi.i2c_write_device(self.h, data)
-		else:
-			for i in range(0, len(data), 2):
-				data[i] &= 0x7F
-			self.pi.spi_xfer(self.h, data)
+    def _write_registers(self, data):
+        if self.I2C:
+            self.pi.i2c_write_device(self.h, data)
+        else:
+            for i in range(0, len(data), 2):
+                data[i] &= 0x7F
+            self.pi.spi_xfer(self.h, data)
 
-	def _read_registers(self, reg, count):
-		if self.I2C:
-			return self.pi.i2c_read_i2c_block_data(self.h, reg, count)
-		else:
-			c, d = self.pi.spi_xfer(self.h, [reg |0x80] + [0]*count)
-			if c > 0:
-				return c-1, d[1:]
-			else:
-				return c, d
+    def _read_registers(self, reg, count):
+        if self.I2C:
+            return self.pi.i2c_read_i2c_block_data(self.h, reg, count)
+        else:
+            c, d = self.pi.spi_xfer(self.h, [reg |0x80] + [0]*count)
+            if c > 0:
+                return c-1, d[1:]
+            else:
+                return c, d
 
-	def _load_calibration(self):
+    def _load_calibration(self):
 
-		c, d1 = self._read_registers(sensor._calib00, 26)
+        c, d1 = self._read_registers(sensor._calib00, 26)
 
-		self.T1 = self._u16(d1, sensor._T1)
-		self.T2 = self._s16(d1, sensor._T2)
-		self.T3 = self._s16(d1, sensor._T3)
+        self.T1 = self._u16(d1, sensor._T1)
+        self.T2 = self._s16(d1, sensor._T2)
+        self.T3 = self._s16(d1, sensor._T3)
 
-		self.P1 = self._u16(d1, sensor._P1)
-		self.P2 = self._s16(d1, sensor._P2)
-		self.P3 = self._s16(d1, sensor._P3)
-		self.P4 = self._s16(d1, sensor._P4)
-		self.P5 = self._s16(d1, sensor._P5)
-		self.P6 = self._s16(d1, sensor._P6)
-		self.P7 = self._s16(d1, sensor._P7)
-		self.P8 = self._s16(d1, sensor._P8)
-		self.P9 = self._s16(d1, sensor._P9)
+        self.P1 = self._u16(d1, sensor._P1)
+        self.P2 = self._s16(d1, sensor._P2)
+        self.P3 = self._s16(d1, sensor._P3)
+        self.P4 = self._s16(d1, sensor._P4)
+        self.P5 = self._s16(d1, sensor._P5)
+        self.P6 = self._s16(d1, sensor._P6)
+        self.P7 = self._s16(d1, sensor._P7)
+        self.P8 = self._s16(d1, sensor._P8)
+        self.P9 = self._s16(d1, sensor._P9)
 
-		self.H1 = self._u8(d1, sensor._H1)
+        self.H1 = self._u8(d1, sensor._H1)
 
-		c, d2 = self._read_registers(sensor._calib26, 7)
+        c, d2 = self._read_registers(sensor._calib26, 7)
 
-		self.H2 = self._s16(d2, sensor._H2)
+        self.H2 = self._s16(d2, sensor._H2)
 
-		self.H3 = self._u8(d2, sensor._H3)
+        self.H3 = self._u8(d2, sensor._H3)
 
-		t = self._u8(d2, sensor._xE5)
+        t = self._u8(d2, sensor._xE5)
 
-		t_l = t & 15
-		t_h = (t >> 4) & 15
+        t_l = t & 15
+        t_h = (t >> 4) & 15
 
-		self.H4 = (self._u8(d2, sensor._xE4) << 4) | t_l
+        self.H4 = (self._u8(d2, sensor._xE4) << 4) | t_l
 
-		if self.H4 > 2047:
-			self.H4 -= 4096
+        if self.H4 > 2047:
+            self.H4 -= 4096
 
-		self.H5 = (self._u8(d2, sensor._xE6) << 4) | t_h
+        self.H5 = (self._u8(d2, sensor._xE6) << 4) | t_h
 
-		if self.H5 > 2047:
-			self.H5 -= 4096
+        if self.H5 > 2047:
+            self.H5 -= 4096
 
-		self.H6 = self._s8(d2, sensor._H6)
+        self.H6 = self._s8(d2, sensor._H6)
 
-	def _read_raw_data(self):
+    def _read_raw_data(self):
 
-		# Set oversampling rate and force reading.
+        # Set oversampling rate and force reading.
 
-		self._write_registers(
-			[sensor._ctrl_hum, self.sampling,
-			sensor._ctrl_meas, self.sampling << 5 | self.sampling << 2 | 1])
+        self._write_registers(
+            [sensor._ctrl_hum, self.sampling,
+            sensor._ctrl_meas, self.sampling << 5 | self.sampling << 2 | 1])
 
-		# Measurement delay.
+        # Measurement delay.
 
-		time.sleep(self.measure_delay)
+        time.sleep(self.measure_delay)
 
-		# Grab reading.
+        # Grab reading.
 
-		c, d = self._read_registers(sensor._rawdata, 8)
+        c, d = self._read_registers(sensor._rawdata, 8)
 
-		msb = self._u8(d, sensor._t_msb)
-		lsb = self._u8(d, sensor._t_lsb)
-		xlsb = self._u8(d, sensor._t_xlsb)
-		raw_t = ((msb << 16) | (lsb << 8) | xlsb) >> 4
+        msb = self._u8(d, sensor._t_msb)
+        lsb = self._u8(d, sensor._t_lsb)
+        xlsb = self._u8(d, sensor._t_xlsb)
+        raw_t = ((msb << 16) | (lsb << 8) | xlsb) >> 4
 
-		msb = self._u8(d, sensor._p_msb)
-		lsb = self._u8(d, sensor._p_lsb)
-		xlsb = self._u8(d, sensor._p_xlsb)
-		raw_p = ((msb << 16) | (lsb << 8) | xlsb) >> 4
+        msb = self._u8(d, sensor._p_msb)
+        lsb = self._u8(d, sensor._p_lsb)
+        xlsb = self._u8(d, sensor._p_xlsb)
+        raw_p = ((msb << 16) | (lsb << 8) | xlsb) >> 4
 
-		msb = self._u8(d, sensor._h_msb)
-		lsb = self._u8(d, sensor._h_lsb)
-		raw_h = (msb << 8) | lsb
+        msb = self._u8(d, sensor._h_msb)
+        lsb = self._u8(d, sensor._h_lsb)
+        raw_h = (msb << 8) | lsb
 
-		return raw_t, raw_p, raw_h
+        return raw_t, raw_p, raw_h
 
-	def read_data(self):
-		"""
-		Returns data
-		the temperature, pressure, and humidity as a tuple.
+    def read_data(self):
+        """
+        Returns data
+        the temperature, pressure, and humidity as a tuple.
 
-		Each value is a float.
+        Each value is a float.
 
-		The temperature is returned in degrees centigrade.  The
-		pressure is returned in Pascals.  The humidity is returned
-		as the relative humidity between 0 and 100%.
-		"""
+        The temperature is returned in degrees centigrade.  The
+        pressure is returned in Pascals.  The humidity is returned
+        as the relative humidity between 0 and 100%.
+        """
 
-		raw_t, raw_p, raw_h = self._read_raw_data()
+        raw_t, raw_p, raw_h = self._read_raw_data()
 
-		var1 = (raw_t/16384.0 - (self.T1)/1024.0) * float(self.T2)
-		var2 = (((raw_t)/131072.0 - (self.T1)/8192.0) *
-				((raw_t)/131072.0 - (self.T1)/8192.0)) * (self.T3)
+        var1 = (raw_t/16384.0 - (self.T1)/1024.0) * float(self.T2)
+        var2 = (((raw_t)/131072.0 - (self.T1)/8192.0) *
+                ((raw_t)/131072.0 - (self.T1)/8192.0)) * (self.T3)
 
-		self.t_fine = var1 + var2
+        self.t_fine = var1 + var2
 
-		t = (var1 + var2) / 5120.0
+        t = (var1 + var2) / 5120.0
 
-		var1 = (self.t_fine/2.0) - 64000.0
-		var2 = var1 * var1 * self.P6 / 32768.0
-		var2 = var2 + (var1 * self.P5 * 2.0)
-		var2 = (var2/4.0)+(self.P4 * 65536.0)
-		var1 = ((self.P3 * var1 * var1 / 524288.0) + (self.P2 * var1)) / 524288.0
-		var1 = (1.0 + var1 / 32768.0)*self.P1
-		if var1 != 0.0:
-			p = 1048576.0 - raw_p
-			p = (p - (var2 / 4096.0)) * 6250.0 / var1
-			var1 = self.P9 * p * p / 2147483648.0
-			var2 = p * self.P8 / 32768.0
-			p = p + (var1 + var2 + self.P7) / 16.0
-		else:
-			p = 0
+        var1 = (self.t_fine/2.0) - 64000.0
+        var2 = var1 * var1 * self.P6 / 32768.0
+        var2 = var2 + (var1 * self.P5 * 2.0)
+        var2 = (var2/4.0)+(self.P4 * 65536.0)
+        var1 = ((self.P3 * var1 * var1 / 524288.0) + (self.P2 * var1)) / 524288.0
+        var1 = (1.0 + var1 / 32768.0)*self.P1
+        if var1 != 0.0:
+            p = 1048576.0 - raw_p
+            p = (p - (var2 / 4096.0)) * 6250.0 / var1
+            var1 = self.P9 * p * p / 2147483648.0
+            var2 = p * self.P8 / 32768.0
+            p = p + (var1 + var2 + self.P7) / 16.0
+        else:
+            p = 0
 
-		h = self.t_fine - 76800.0
+        h = self.t_fine - 76800.0
 
-		h = ((raw_h - ((self.H4) * 64.0 + (self.H5) / 16384.0 * h)) *
-				((self.H2) / 65536.0 * (1.0 + (self.H6) / 67108864.0 * h *
-										(1.0 + (self.H3) / 67108864.0 * h))))
+        h = ((raw_h - ((self.H4) * 64.0 + (self.H5) / 16384.0 * h)) *
+                ((self.H2) / 65536.0 * (1.0 + (self.H6) / 67108864.0 * h *
+                                        (1.0 + (self.H3) / 67108864.0 * h))))
 
-		h = h * (1.0 - self.H1 * h / 524288.0)
+        h = h * (1.0 - self.H1 * h / 524288.0)
 
-		if h > 100.0:
-			h = 100.0
-		elif h < 0.0:
-			h = 0.0
+        if h > 100.0:
+            h = 100.0
+        elif h < 0.0:
+            h = 0.0
 
-		return t, p, h
+        return t, p, h
 
-	def cancel(self):
-		"""
-		Cancels the sensor and releases resources.
-		"""
-		if self.h is not None:
+    def cancel(self):
+        """
+        Cancels the sensor and releases resources.
+        """
+        if self.h is not None:
 
-			if self.I2C:
-				self.pi.i2c_close(self.h)
-			else:
-				self.pi.spi_close(self.h)
+            if self.I2C:
+                self.pi.i2c_close(self.h)
+            else:
+                self.pi.spi_close(self.h)
 
-			self.h = None
+            self.h = None
 
 if __name__ == "__main__":
 

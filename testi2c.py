@@ -3,6 +3,8 @@ import pigpio
 import time
 
 # DONE IN CONFIG.TXT dtparam=i2c_arm=on
+# THIS DOES NOT USE SPI TO CONTROL THE BARGRAPH
+# 
 
 # RELAY SECTION ADDRESSES
 SECTION_0_ADDR = 0x20
@@ -53,6 +55,9 @@ if __name__ == "__main__":
     while True:
 
         #    char _RelayPairAddrStateSetting; // 0b000000XY, X=Relay_Two ON/OFF, Y=Relay_One ON/OFF
+        # WRITE_BYTE_DATA WILL FAIL IF RELAY IS NOT CONNECTED AND ADDRESSED CORRECTLY
+        # ADD TRY: EXCEPT: TO CATCH THE FAIL CONDITION
+        # TBD
         HW.i2c_write_byte_data(handle, OUTPUT_PORT, ZEROES) # OFF
         time.sleep(0.100)
 
