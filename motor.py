@@ -12,7 +12,7 @@ AUX_SPI = 256
 OVER_SAMPLE_1 = 0
 
 # CONSTANTS DEFINED FOR MOTOR
-SC_CODE_ALARM_PRESENT = 0x00
+SC_CODE_ALARM_PRESENT = 0x0200
 IS_INPUT_STATUS_OPTO_BIT_ON = 0x01
 DI_STOP_DISTANCE_AFTER_SENSOR = 225000
 MAX_NUMBER_MOTOR_STEPS = 525000
@@ -96,30 +96,29 @@ class Motor:
           26         37   38      20 (mosi)
           0V         39   40      21 (sclk)
           """
-#        self.pi = pi
-#
-#        if interface == I2C:
-#            self.I2C = True
-#        else:
-#            self.I2C = False
-#
-#        self.sampling = sampling
-#
-#        if self.I2C:
-#            self.h = pi.i2c_open(bus, address)
-#        else:
-#            self.h = pi.spi_open(channel, baud, flags)
-#
-#        self._load_calibration()
-#
-#        self.measure_delay = self._measurement_time(
-#            sampling, sampling, sampling)
-#
-#        self.t_fine = 0.0
+          
+          
+        #first serial port
+        # GPIO14 for txc
+        # GPIO15 FOR RXC
+        self.com1 = serial.Serial(port = "/dev/ttyAMA0", baudrate=9600,bytesize=8, timeout=0.10, stopbits=serial.STOPBITS_ONE)
+        # second serial port
+        # GPIO4 TXD
+        # GPIO5 RXDsc
+        
+        self.com2 = serial.Serial(port = "/dev/ttyAMA1", baudrate=9600,bytesize=8, timeout=0.10, stopbits=serial.STOPBITS_ONE)
 
-    #
-    #
-    # define using the same API as in original library
+        self.com1.isOpen()
+        self.com2.isOpen()
+
+        self.com1.flushInput()
+        self.com1.flushOutput()
+
+        self.com2.flushInput()
+        self.com2.flushOutput()
+        #
+        #
+        # define using the same API as in original library
         return
 
     def calibration(self):
@@ -212,8 +211,8 @@ class Motor:
         # Establish communication and see if there is an Alarm
         # CHECK THE STATUS CODE.  IF ALARM PRESENT, RESET THE ALARM.
         _result = self._motor_SC()
-        _result = 0x0001
-        if (_result == SC_CODE_ALARM_PRESENT):
+        # _result = 0x0001
+        if (_result & SC_CODE_ALARM_PRESENT):
             # ALARM PRESENT ... GET THE ALARM CODE
             _result = self._motor_AL()
             print(f"Motor Alarm Code {_result}")
@@ -241,7 +240,7 @@ class Motor:
                 return False
         
         # CONTINUE ...
-        # GET ALARM CODE
+        # GET ALARM CODE == LINE 537
         _result = self._motor_AL()       
         # ALARM STILL PRESENT?
         if (_result != 0x00):
@@ -264,7 +263,7 @@ class Motor:
         
         # READ CURRENT INPUT STATUS OF MOTOR LINE # 558
         _result = self._motor_IS()
-        if (_result == IS_INPUT_STATUS_OPTO_BIT_ON ):
+        if (_result & IS_INPUT_STATUS_OPTO_BIT_ON ):
             # CURRENT LOCATION IS INSIDE THE BARRIER SINCE THE OPTO BIT IS ON
 
             # MOTOR_Command(FL, -100000, WAIT);
@@ -277,7 +276,7 @@ class Motor:
             # SEE IF THERE IS AN ALARM AFTER THIS INITIAL MOVEMENT
             # CHECK THE STATUS CODE.  IF ALARM PRESENT, RESET THE ALARM.
             _result = self._motor_SC()
-            if (_result == SC_CODE_ALARM_PRESENT):
+            if (_result & SC_CODE_ALARM_PRESENT):
                 _result = self._motor_AL()
                 print(f"MOTOR ALARM CODE {_result}")
                 
@@ -332,9 +331,9 @@ class Motor:
             # MOTOR_Command(IS, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
             # _InputStatusCode = MOTOR.RESPONSE_Value;
 
-            _response = self.set_command(self,"IS") # GET INPUT STATUS CODE
+            _response = self.set_command(self,"IS") # GET INPUT STATUS CODE == LINE 621
             _result = self._process_response(_response)
-            if (_result == IS_INPUT_STATUS_OPTO_BIT_ON ): 
+            if (_result & IS_INPUT_STATUS_OPTO_BIT_ON): 
                 # WITH OPTO-BIT ON,POSITION IS INSIDE OPTO BARRIER
                 # CHECK MOTOR STATUS // LINE # 632 // SHOULD NOT BE INSIDE
                 # MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
@@ -392,7 +391,7 @@ class Motor:
 
                 _response = self._motor_IS() # GET INPUT STATUS CODE
                 _result = self._process_response(_response)
-                if (_result == IS_INPUT_STATUS_OPTO_BIT_ON ): 
+                if (_result & IS_INPUT_STATUS_OPTO_BIT_ON ): 
                     # WITH OPTO-BIT ON,POSITION IS INSIDE OPTO BARRIER
                     # POSITION IS STILL INSIDE THE OPTO-BARRIER EVEN AFTER TRYING TO MOVE IT OUT
                     _response = self.set_command(self,"SC") # GET INPUT STATUS CODE
@@ -436,6 +435,7 @@ class Motor:
 
                 time.sleep(0.50)
 
+
             # MOTOR POSITION IS NOT IN BARRIER BUT OTHERWISE UNKNOWN.
             # LINE 670
 
@@ -473,8 +473,8 @@ class Motor:
             time.sleep(1.5)
 
             # GET STATUS CODE
-            _result = self._motor_SC()
-            if (_result == SC_CODE_ALARM_PRESENT):
+            _result = self._motor_SC()      # == LINE 701
+            if (_result & SC_CODE_ALARM_PRESENT):
                 _result = self._motor_AL()
                 print(f"MOTOR ALARM CODE {_result}")
                 
@@ -496,7 +496,7 @@ class Motor:
 
             # NO ALARM CONTINUE
 
-            # GET IP POSITION
+            # GET IP POSITION == LINE 727
             _result = self._motor_IP() # GET IP POSITION
             _MotorPosition = _result
             if (_result == _StartupMotorPosition):
@@ -629,13 +629,15 @@ class Motor:
 
         # get the response from the motor 
         # could be 0% or XX=VALUE
-        response = "SC=0000"
+        # response = "SC=0000"
+        self.send_cmd(self.com1,motor_command,0.100)
+        response = self.read_response(self.com1)
         return response
 
     def _process_response(self,_MotorResponseCommandLine):
         # RESPONSE FROM MOTOR IS XX=VALUE
         # PARSE THE TWO LETTER COMMAND AND THE INTEGER VALUE
-
+        # NEED TO PARSE THIS RESPONSE
         return 0
 
     def _parse_response(_MotorResponseCommandLine):
@@ -654,12 +656,12 @@ class Motor:
 
             self.h = None
     
-    def sendcmdtomotor(self,serialport,motorcommand,waittime):
+    def send_cmd(self,serialport,motorcommand,waittime):
         command = "0" + motorcommand + '\r'
         serialport.write(command.encode())    # encode into bytes
         time.sleep(waittime) # send to motor and wait 100 ms to read response
 
-    def readresponsemotor(self,serialport):
+    def read_response(self,serialport):
         if (serialport.in_waiting > 0):
             number_bytes = serialport.in_waiting
             from_motor = serialport.read(number_bytes)
@@ -667,6 +669,16 @@ class Motor:
                 return None
             else:
                 return from_motor.decode()
+            
+    def test_input_command(self):
+        getinput = input()
+        motorcommand = getinput
+        m.send_cmd(m.com1,motorcommand,0.100)
+        result = m.read_response(m.com1)
+        print (motorcommand, result)
+
+
+        
 
 if __name__ == "__main__":
 
@@ -675,37 +687,12 @@ if __name__ == "__main__":
     m = Motor()
 #    m.initialize()
 
-
-    #first serial port
-    # GPIO14 for txc
-    # GPIO15 FOR RXC
-    com1 = serial.Serial(port = "/dev/ttyAMA0", baudrate=9600,bytesize=8, timeout=0.10, stopbits=serial.STOPBITS_ONE)
-    # second serial port
-    # GPIO4 TXD
-    # GPIO5 RXDsc
-    
-    com2 = serial.Serial(port = "/dev/ttyAMA1", baudrate=9600,bytesize=8, timeout=0.10, stopbits=serial.STOPBITS_ONE)
-
-    com1.isOpen()
-    com2.isOpen()
-
-    com1.flushInput()
-    com1.flushOutput()
-
-    com2.flushInput()
-    com2.flushOutput()
-
     while True:
+        m.test_input_command()
 
-
-        getinput = input()
-        motorcommand = getinput
-        m.sendcmdtomotor(com1,motorcommand,0.100)
-        result = m.readresponsemotor(com1)
-        print (motorcommand, result)
-
-
-
+        m.initialize()
+    
+    
 
 
 
