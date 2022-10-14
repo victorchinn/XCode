@@ -168,7 +168,7 @@ class Motor:
         _response = self.set_command("AR") # SET ALARM RESET
         return _response
 
-    def set_motor_MD(self,arg1: int) -> str:
+    def set_motor_DI(self,arg1: int) -> str:
         _response = self.set_command("DI"+str(arg1)) # SET MOTOR DISTANCE (ACTUALLY DI COMMAND)
         return _response
 
@@ -177,7 +177,7 @@ class Motor:
         return _response
 
     def set_motor_MO(self) -> str:
-        _response = self.set_command("MO") # MOVE TO OPTO INTERRUPT
+        _response = self.set_command("0FS1H") # MOVE TO OPTO INTERRUPT # FEED SENSOR BIT 1 HIGH THEN STOP
         return _response
 
     def set_motor_EP(self,arg1:int) -> str:
@@ -271,7 +271,7 @@ class Motor:
             if (_response != ACK_RESPONSE):
                 print(f"CANNOT MOVE MOTOR FL-100000.")
 
-            time.sleep(0.50)
+            time.sleep(3.0) # WAS 0.50 CHANGE TO 3.0 TO REMOVE BUFFERED RESPONSE *
             
             # SEE IF THERE IS AN ALARM AFTER THIS INITIAL MOVEMENT
             # CHECK THE STATUS CODE.  IF ALARM PRESENT, RESET THE ALARM.
@@ -300,7 +300,7 @@ class Motor:
                 time.sleep(0.500)
                 
                 # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
-                _response = self.set_motor_MD(DI_STOP_DISTANCE_AFTER_SENSOR)
+                _response = self.set_motor_DI(DI_STOP_DISTANCE_AFTER_SENSOR)
                
                 _result = self.get_motor_AL() # GET THE ALARM CODE
                 if (_result != 0):
@@ -316,7 +316,7 @@ class Motor:
                 print(f"FL-10000 FAIL TO ACK. {_response}")
     
             # waitfor(DelayMs(HALF_SEC));
-            time.sleep(0.50)
+            time.sleep(3.0) # WAS 0.50 CHANGE TO 3.0 TO REMOVE BUFFERED RESPONSE *
             
             # check MOTOR status
             # MOTOR_Command(SC, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
@@ -359,7 +359,7 @@ class Motor:
                 # MOTOR_Command(AL, 0, WAIT); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
 
                 # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
-                _response = self.set_motor_MD(self,DI_STOP_DISTANCE_AFTER_SENSOR)
+                _response = self.set_motor_DI(self,DI_STOP_DISTANCE_AFTER_SENSOR)
                 if (_response != ACK_RESPONSE):
                     print(f"MOTOR DISTANCE SET FAIL TO ACK. {_response}")
                
@@ -369,11 +369,11 @@ class Motor:
                     print(f"Motor Alarm Code {hex(_result)}")
 
                 # MOVE BACK 100000 STEPS
-                _response = self.set_command(self,"FL-100000")
+                _response = self.set_command("FL-100000")
                 if (_response != ACK_RESPONSE):
                     print(f"FL-10000 FAIL TO ACK. {_response}")
 
-                time.sleep(0.50)
+                time.sleep(3.0) # WAS 0.50 CHANGE TO 3.0 TO REMOVE BUFFERED RESPONSE *
 
                 _result = self.get_motor_SC() # GET STATUS CODE
 
@@ -405,7 +405,7 @@ class Motor:
                 time.sleep(1)
 
                 # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
-                _response = self.set_motor_MD(DI_STOP_DISTANCE_AFTER_SENSOR)
+                _response = self.set_motor_DI(DI_STOP_DISTANCE_AFTER_SENSOR)
                 if (_response != ACK_RESPONSE):
                     print(f"MOTOR DISTANCE SET FAIL TO ACK. {_response}")
                
@@ -416,11 +416,11 @@ class Motor:
                     return False
 
                 # MOVE BACK 100000 STEPS
-                _response = self.set_command(self,"FL-100000")
+                _response = self.set_command("FL-100000")
                 if (_response != ACK_RESPONSE):
                     print(f"FL-10000 FAIL TO ACK. {_response}")
 
-                time.sleep(0.50)
+                time.sleep(3.0) # WAS 0.50 CHANGE TO 3.0 TO REMOVE BUFFERED RESPONSE *
 
         # MOTOR POSITION IS NOT IN BARRIER BUT OTHERWISE UNKNOWN.
         # LINE 662
@@ -429,7 +429,7 @@ class Motor:
         _result = self.get_motor_IP() # GET IP POSITION
 
         # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
-        _response = self.set_motor_MD(DI_STOP_DISTANCE_AFTER_SENSOR)
+        _response = self.set_motor_DI(DI_STOP_DISTANCE_AFTER_SENSOR)
         if (_response != ACK_RESPONSE):
             print(f"MOTOR DISTANCE SET FAIL TO ACK. {_response}")
 
@@ -452,7 +452,7 @@ class Motor:
         if (_response != ACK_RESPONSE):
             print(f"GET STATUS CODE FAIL TO ACK. CANNOT MOVE TO OPTO LIMIT {_response}")
 
-        time.sleep(1.5)
+        time.sleep(6.5) # WAS 1.5 NOW CHANGE TO 6.5 SECS
 
         # GET STATUS CODE
         _result = self.get_motor_SC()      # == LINE 701
@@ -499,11 +499,11 @@ class Motor:
         if (_MotorPosition > MAX_NUMBER_MOTOR_STEPS):
             #
             # MOVE BACK 100000 STEPS
-            _response = self.set_command(self,"FL-100000")
+            _response = self.set_command("FL-100000")
             if (_response != ACK_RESPONSE):
                 print(f"FL-10000 FAIL TO ACK. {_response}")
 
-            time.sleep(0.50)
+            time.sleep(3.0) # WAS 0.50 CHANGE TO 3.0 TO REMOVE BUFFERED RESPONSE *
 
             # MOVE TO OPTO LIMIT
             _response = self.set_motor_MO() # MOVE TO OPTO LIMIT
