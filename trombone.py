@@ -1,5 +1,7 @@
 
+import enum
 from motor import *
+from dataclasses import dataclass
 
 # SystemController CLASS
 ERR_NO_ERROR = -1
@@ -8,6 +10,7 @@ ERR_NO_CALIBRATION = 2
 ERR_DELAY_NOT_SET = 3
 ERR_DELAY_OUT_OF_RANGE = 4
 
+@dataclass
 class Trombone:
 
     def __init__(self, model_type, _SystemSettings):
@@ -20,7 +23,7 @@ class Trombone:
         self.SystemSettings = _SystemSettings
 
         self.Motor = Motor()
-        if ((self.Motor.initialize()) == False):
+        if (self.Motor.initialize() == False):
             pass
             # WHAT TO DO IF THERE IS A MOTOR INITIALIZATION PROBLEM HERE?
         else:
@@ -51,6 +54,15 @@ class Trombone:
         print (f"Set delay Trombone XT-100 {Value}")
         return ERR_NO_ERROR
 
+    def set_delay(self, pri_sec:enum, value : int, overshoot: bool, caltable: bool, callback: object  ) -> None:
+        if (pri_sec == 'PRI'):
+            # determine which COM port to use whether XT-100 or XT-200 PRIMARY
+            pass
+        else:
+            # use the com port for secondary trombone XT-200 SECONDARY
+            pass
+
+                    
     
     def set_Delay_Primary(self,Value):
         print (f"Set delay CH1 XT-200 {Value}")

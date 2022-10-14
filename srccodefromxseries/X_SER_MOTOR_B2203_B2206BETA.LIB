@@ -568,11 +568,6 @@ void MOTOR_Initialize(void)
             if ((_InputStatusCode & 0x0001) == 1)
             {   // changed to 1 for HW1 VER 2 BOARD
                 // was 0 for HW PROTOTYPE BOARD)
-#ifdef MOTORMSGS
-                sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR MOVE\tIN OPTO");
-                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
-#endif
-
                 // LOCATION IS INSIDE THE BARRIER SO MOVE BACK 100000 STEPS
                 MOTOR_Command(FL, -100000, WAIT);
 
@@ -670,10 +665,6 @@ void MOTOR_Initialize(void)
             MOTOR_Command(IP_COMMAND, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
             _MotorPosition = MOTOR.RESPONSE_Value;
 
-#ifdef MOTORMSGS
-            sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR OPTO\tTEST");
-            SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
-#endif
 
             MOTOR_Command(MD, DI_STOP_DISTANCE_AFTER_SENSOR, WAIT); // SET THE MOVE DISTANCE(1) TO STOP FOR FS MOVEMENT
 
@@ -738,14 +729,6 @@ void MOTOR_Initialize(void)
                 SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
             }
 
-#ifdef MOTORMSGS
-            else
-            {
-                sprintf(BUFFERS.DISPLAY_LINE, "#MOTOR OPTO\tPASS");
-                SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
-            }
-#endif
-
             // if the starting motor position is above 525000, then MR 100000
             // else MR for the entire amount of the initial position
             //
@@ -761,12 +744,6 @@ void MOTOR_Initialize(void)
                 MOTOR_Command(IP_COMMAND, 0, WAIT); //waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
                 _MotorPosition = MOTOR.RESPONSE_Value;
             } // end-if
-
-#ifdef MOTORMSGS
-            sprintf(BUFFERS.DISPLAY_LINE, "#SET ZERO\tPOS");
-            SYSTEM_OutputTerminal(BUFFERS.DISPLAY_LINE);
-#endif
-
             //
             //MOTOR_Move(MAX_NUMBER_MOTOR_STEPS); // waitfor(sRMRA); sRMRA = FALSE; // get ACK 0%
             //

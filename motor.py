@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+from asyncio import streams
 import time
+from unittest.util import strclass
 import serial
 
 # MOTOR CLASS
@@ -141,63 +143,63 @@ class Motor:
         return
 
     # these MOTOR commands return a VALUE
-    def _motor_SC(self):
+    def _motor_SC(self) -> int:
         _response = self.set_command("SC") # GET STATUS CODE
         _result = self._process_response(_response) 
-        return _result  # RETURNS VALUE
+        return int(_result)  # RETURNS INT VALUE
     
-    def _motor_AL(self):
+    def _motor_AL(self) -> int:
         _response = self.set_command("AL") # GET ALARM CODE
         _result = self._process_response(_response)
-        return _result  # RETURNS VALUE
+        return int(_result)  # RETURNS INT VALUE
 
-    def _motor_IS(self):
+    def _motor_IS(self) -> int:
         _response = self.set_command("IS") # GET INPUT STATUS
         _result = self._process_response(_response)
-        return _result  # RETURNS VALUE
+        return int(_result)  # RETURNS INT VALUE
 
-    def _motor_IP(self):
+    def _motor_IP(self) -> int:
         _response = self.set_command("IP") # GET IP
         _result = self._process_response(_response)
-        return _result  # RETURNS VALUE
+        return int(_result)  # RETURNS INT VALUE
 
-    def _motor_DI(self):
+    def _motor_DI(self) -> int:
         _response = self.set_command("DI") # GET DI
         _result = self._process_response(_response)
-        return _result  # RETURNS VALUE
+        return int(_result)  # RETURNS INT VALUE
 
     # these MOTOR commands return an 0% ACKNOWLEDGEMENT
 
-    def _motor_AR(self):
+    def _motor_AR(self) -> str:
         _response = self.set_command("AR") # SET ALARM RESET
         return _response
 
-    def _motor_MD(self,arg1):
-        _response = self.set_command("MD"+arg1) # SET MOTOR DISTANCE
+    def _motor_MD(self,arg1: int) -> str:
+        _response = self.set_command("DI"+str(arg1)) # SET MOTOR DISTANCE (ACTUALLY DI COMMAND)
         return _response
 
-    def _motor_ME(self):
+    def _motor_ME(self) -> str:
         _response = self.set_command("ME") # SET MOTOR ENABLE
         return _response
 
-    def _motor_MO(self):
+    def _motor_MO(self) -> str:
         _response = self.set_command("MO") # MOVE TO OPTO INTERRUPT
         return _response
 
-    def _motor_EP(self,arg1):
-        _response = self.set_command("EP"+arg1) # SET EP
+    def _motor_EP(self,arg1:int) -> str:
+        _response = self.set_command("EP"+str(arg1)) # SET EP
         return _response
 
-    def _motor_SP(self,arg1):
-        _response = self.set_command("SP"+arg1) # SET SP
+    def _motor_SP(self,arg1:int) -> str:
+        _response = self.set_command("SP"+str(arg1)) # SET SP
         return _response
 
-    def _motor_ML(self,arg1):
-        _response = self.set_command("ML"+arg1) # SET MOVE LEFT
+    def _motor_ML(self,arg1:int) -> str:
+        _response = self.set_command("ML"+str(arg1)) # SET MOVE LEFT
         return _response
 
-    def _motor_MR(self,arg1):
-        _response = self.set_command("MR"+arg1) # SET MOVE RIGHT
+    def _motor_MR(self,arg1:int) -> str:
+        _response = self.set_command("MR"+str(arg1)) # SET MOVE RIGHT
         return _response
 
 
@@ -211,7 +213,7 @@ class Motor:
         # Establish communication and see if there is an Alarm
         # CHECK THE STATUS CODE.  IF ALARM PRESENT, RESET THE ALARM.
         _result = self._motor_SC()
-        # _result = 0x0001
+        
         if (_result & SC_CODE_ALARM_PRESENT):
             # ALARM PRESENT ... GET THE ALARM CODE
             _result = self._motor_AL()
@@ -233,7 +235,7 @@ class Motor:
             
             # CHECK THE STATUS AFTER RESETTING THE ALARM
             _result = self._motor_SC()
-            if (_result == SC_CODE_ALARM_PRESENT):
+            if (_result) & SC_CODE_ALARM_PRESENT:
                 # // HALT // ??
                 # // RESETTING THE ALARM DOESN'T FIX PROBLEM.  MOTOR FAIL PROBLEM.
                 print(f"ALARM RESET FAIL. HALT. {_response}")
@@ -263,11 +265,11 @@ class Motor:
         
         # READ CURRENT INPUT STATUS OF MOTOR LINE # 558
         _result = self._motor_IS()
-        if (_result & IS_INPUT_STATUS_OPTO_BIT_ON ):
+        if (_result & IS_INPUT_STATUS_OPTO_BIT_ON):
             # CURRENT LOCATION IS INSIDE THE BARRIER SINCE THE OPTO BIT IS ON
 
             # MOTOR_Command(FL, -100000, WAIT);
-            _response = self.set_command(self,"FL-100000")
+            _response = self.set_command("FL-100000")
             if (_response != "0%"):
                 print(f"CANNOT MOVE MOTOR FL-100000.")
 
@@ -312,7 +314,7 @@ class Motor:
 
             # MOVE BACK ANOTHER 100000 STEPS
             # MOTOR_Command(FL, -100000, WAIT);
-            _response = self.set_command(self,"FL-100000")
+            _response = self.set_command("FL-100000")
             if (_response != "0%"):
                 print(f"FL-10000 FAIL TO ACK. {_response}")
     
@@ -391,7 +393,7 @@ class Motor:
 
                 _response = self._motor_IS() # GET INPUT STATUS CODE
                 _result = self._process_response(_response)
-                if (_result & IS_INPUT_STATUS_OPTO_BIT_ON ): 
+                if (_result & (int(IS_INPUT_STATUS_OPTO_BIT_ON))): 
                     # WITH OPTO-BIT ON,POSITION IS INSIDE OPTO BARRIER
                     # POSITION IS STILL INSIDE THE OPTO-BARRIER EVEN AFTER TRYING TO MOVE IT OUT
                     _response = self.set_command(self,"SC") # GET INPUT STATUS CODE
@@ -435,136 +437,134 @@ class Motor:
 
                 time.sleep(0.50)
 
+        # MOTOR POSITION IS NOT IN BARRIER BUT OTHERWISE UNKNOWN.
+        # LINE 662
 
-            # MOTOR POSITION IS NOT IN BARRIER BUT OTHERWISE UNKNOWN.
-            # LINE 670
+        # GET IP POSITION
+        _result = self._motor_IP() # GET IP POSITION
 
-            # GET IP POSITION
-            _result = self._motor_IP() # GET IP POSITION
+        # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
+        _response = self._motor_MD(DI_STOP_DISTANCE_AFTER_SENSOR)
+        if (_response != "0%\r"):
+            print(f"MOTOR DISTANCE SET FAIL TO ACK. {_response}")
 
-            # SET THE MOVE DISTANCE TO STOP FOR FS MOVEMENT
-            _response = self._motor_MD(self,DI_STOP_DISTANCE_AFTER_SENSOR)
+        # GET DI VALUE
+        _result = self._motor_DI() # GET DI
+
+        # GET STATUS CODE
+        _response = self._motor_SC() # GET STATUS CODE
+        if (_response != "0%"):
+            print(f"GET STATUS CODE FAIL TO ACK. {_response}")
+
+        # GET CURRENT POSITION AND RECORD IT
+        # GET IP POSITION
+        _result = self._motor_IP() # GET IP POSITION
+        _StartupMotorPosition = _result    
+
+        # MOVE TO OPTO LIMIT
+        # LINE 690
+
+        # MOVE TO OPTO LIMIT
+        _response = self._motor_MO() # MOVE TO OPTO LIMIT
+        if (_response != "0%\r"):
+            print(f"GET STATUS CODE FAIL TO ACK. {_response}")
+
+        time.sleep(1.5)
+
+        # GET STATUS CODE
+        _result = self._motor_SC()      # == LINE 701
+        if (_result & SC_CODE_ALARM_PRESENT):
+            _result = self._motor_AL()
+            print(f"MOTOR ALARM CODE {_result}")
+            
+            # RESET THE ALARM
+            _response = self._motor_AR() # RESET THE ALARM
             if (_response != "0%"):
-                print(f"MOTOR DISTANCE SET FAIL TO ACK. {_response}")
-
-            # GET DI VALUE
-            _response = self._motor_DI(self,"DI") # GET DI
-            _result = self._process_response(_response)
+                print(f"CANNOT RESET MOTOR ALARM {_response}")
+                
+            # MUST ENABLE THE MOTOR AFTER AN ALARM RESET
+            _response = self._motor_ME()
+            if (_response != "0%"):
+                print(f"CANNOT ENABLE MOTOR {_response}")
 
             # GET STATUS CODE
-            _response = self._motor_SC() # GET STATUS CODE
+            _result = self._motor_SC()
+            if (_result & SC_CODE_ALARM_PRESENT):
+                print(f"MOTOR ALARM RESET FAIL CODE {_result}")
+                return False
+
+        # NO ALARM CONTINUE
+
+        # GET IP POSITION == LINE 727
+        _result = self._motor_IP() # GET IP POSITION
+        _MotorPosition = _result 
+        if (_result == _StartupMotorPosition):
+        # IF THE MOTOR POSITION IS THE SAME THEN THERE WAS A PROBLEM WITH OPTODETECT MOVE
+
+            # GET STATUS CODE
+            _result = self._motor_SC()
+            if (_result == SC_CODE_ALARM_PRESENT):
+                print(f"NO MOVE ERROR.  {_result}")
+                return False
+        
+        # MOTOR OPTO HAS PASSED
+
+        # IF THE STARTING MOTOR POSITION IS ABOVE 525000, THEN MR 100000
+        # ELSE MR FOR THE ENTIRE AMOUNT OF THE INITIAL POSITION
+
+        # LINE 735
+        if (_MotorPosition > MAX_NUMBER_MOTOR_STEPS):
+            #
+            # MOVE BACK 100000 STEPS
+            _response = self.set_command(self,"FL-100000")
             if (_response != "0%"):
-                print(f"GET STATUS CODE FAIL TO ACK. {_response}")
+                print(f"FL-10000 FAIL TO ACK. {_response}")
 
-            # GET CURRENT POSITION AND RECORD IT
-            # GET IP POSITION
-            _response = self._motor_IP() # GET IP POSITION
-            _result = self._process_response(_response)
-            _StartupMotorPosition = _result
-
-            # MOVE TO OPTO LIMIT
-            # LINE 690
+            time.sleep(0.50)
 
             # MOVE TO OPTO LIMIT
             _response = self._motor_MO() # MOVE TO OPTO LIMIT
             if (_response != "0%"):
                 print(f"GET STATUS CODE FAIL TO ACK. {_response}")
 
-            time.sleep(1.5)
-
-            # GET STATUS CODE
-            _result = self._motor_SC()      # == LINE 701
-            if (_result & SC_CODE_ALARM_PRESENT):
-                _result = self._motor_AL()
-                print(f"MOTOR ALARM CODE {_result}")
-                
-                # RESET THE ALARM
-                _response = self._motor_AR() # RESET THE ALARM
-                if (_response != "0%"):
-                    print(f"CANNOT RESET MOTOR ALARM {_response}")
-                    
-                # MUST ENABLE THE MOTOR AFTER AN ALARM RESET
-                _response = self._motor_ME()
-                if (_response != "0%"):
-                    print(f"CANNOT ENABLE MOTOR {_response}")
-
-                # GET STATUS CODE
-                _result = self._motor_SC()
-                if (_result == SC_CODE_ALARM_PRESENT):
-                    print(f"MOTOR ALARM RESET FAIL CODE {_result}")
-                    return False
-
-            # NO ALARM CONTINUE
-
-            # GET IP POSITION == LINE 727
-            _result = self._motor_IP() # GET IP POSITION
-            _MotorPosition = _result
-            if (_result == _StartupMotorPosition):
-            # IF THE MOTOR POSITION IS THE SAME THEN THERE WAS A PROBLEM WITH OPTODETECT MOVE
-
-                # GET STATUS CODE
-                _result = self._motor_SC()
-                if (_result == SC_CODE_ALARM_PRESENT):
-                    print(f"NO MOVE ERROR.  {_result}")
-                    return False
-            
-            # MOTOR OPTO HAS PASSED
-
-            # IF THE STARTING MOTOR POSITION IS ABOVE 525000, THEN MR 100000
-            # ELSE MR FOR THE ENTIRE AMOUNT OF THE INITIAL POSITION
-
-            if (_MotorPosition > MAX_NUMBER_MOTOR_STEPS):
-                #
-                # MOVE BACK 100000 STEPS
-                _response = self.set_command(self,"FL-100000")
-                if (_response != "0%"):
-                    print(f"FL-10000 FAIL TO ACK. {_response}")
-
-                time.sleep(0.50)
-
-                # MOVE TO OPTO LIMIT
-                _response = self._motor_MO() # MOVE TO OPTO LIMIT
-                if (_response != "0%"):
-                    print(f"GET STATUS CODE FAIL TO ACK. {_response}")
-
-                time.sleep(0.5)
-
-                # GET IP POSITION
-                _result = self._motor_IP() # GET IP POSITION
-                _MotorPosition = _result
-
-            # CURRENT MOTOR POSITION IS INSIDE THE OPTO
-            # BACK OFF A FIXED NUMBER OF STEPS (MAX FOR INSTRUMENT) AND THEN SET AS ZERO POSITION
-            # FL COMMANDS MOVES RELATIVE NUMVER OF STEPS FROM CURRENT POSITION
-            
-            _response = self.set_command("FL-"+MAX_NUMBER_MOTOR_STEPS)
-            if (_response != "0%"):
-                print(f"FL-10000 FAIL TO ACK. {_response}")
-
-            time.sleep(1.5)
+            time.sleep(0.5)
 
             # GET IP POSITION
             _result = self._motor_IP() # GET IP POSITION
             _MotorPosition = _result
 
-            # SHOULD NOW BE AT THE ZERO POSITION
-            # SET THE ZERO POSITION HERE
+        # CURRENT MOTOR POSITION IS INSIDE THE OPTO
+        # BACK OFF A FIXED NUMBER OF STEPS (MAX FOR INSTRUMENT) AND THEN SET AS ZERO POSITION
+        # FL COMMANDS MOVES RELATIVE NUMVER OF STEPS FROM CURRENT POSITION
+        
+        _response = self.set_command("FL-"+ str(MAX_NUMBER_MOTOR_STEPS))
+        if (_response != "0%"):
+            print(f"FL-10000 FAIL TO ACK. {_response}")
 
-            # EP ENCODER POSITION COMMAND // EP0 TO RESET INTERNAL POSITION COUNTER TO 0
-            _response = self._motor_EP(self,0)
-            if (_response != "0%"):
-                print(f"EP0 FAIL TO ACK. {_response}")
+        time.sleep(1.5)
 
-            # SP SET POSITION // SP0 TO RESET INTERNAL POSITION COUNTER TO 0 == ZERO POINT
-            _response = self._motor_SP(self,0)
-            if (_response != "0%"):
-                print(f"SP0 FAIL TO ACK. {_response}")
+        # GET IP POSITION
+        _result = self._motor_IP() # GET IP POSITION
+        _MotorPosition = _result   
+        
+        # SHOULD NOW BE AT THE ZERO POSITION
+        # SET THE ZERO POSITION HERE
 
-            # GET IP POSITION
-            _result = self._motor_IP() # GET IP POSITION
-            _MotorPosition = _result
+        # EP ENCODER POSITION COMMAND // EP0 TO RESET INTERNAL POSITION COUNTER TO 0
+        _response = self._motor_EP(self,0)
+        if (_response != "0%"):
+            print(f"EP0 FAIL TO ACK. {_response}")
 
-            time.sleep(0.50)
+        # SP SET POSITION // SP0 TO RESET INTERNAL POSITION COUNTER TO 0 == ZERO POINT
+        _response = self._motor_SP(self,0)
+        if (_response != "0%"):
+            print(f"SP0 FAIL TO ACK. {_response}")
+
+        # GET IP POSITION
+        _result = self._motor_IP() # GET IP POSITION
+        _MotorPosition = _result
+
+        time.sleep(0.50)
         
         return True
 
@@ -622,8 +622,7 @@ class Motor:
 
     def verify_and_round(self,delay):
         return
-
-    def set_command(self,motor_command):
+    def set_command(self,motor_command) -> str:
         # send motor_command to the motor
         print (f"send to motor: motor_command = {motor_command}")
 
@@ -632,13 +631,16 @@ class Motor:
         # response = "SC=0000"
         self.send_cmd(self.com1,motor_command,0.100)
         response = self.read_response(self.com1)
-        return response
+        return response # return a str
 
-    def _process_response(self,_MotorResponseCommandLine):
+    def _process_response(self,_MotorResponseCommandLine:str) -> streams:
         # RESPONSE FROM MOTOR IS XX=VALUE
         # PARSE THE TWO LETTER COMMAND AND THE INTEGER VALUE
         # NEED TO PARSE THIS RESPONSE
-        return 0
+        string_response = _MotorResponseCommandLine.replace("\r","")
+        digits_only = string_response.split("=") 
+        digits = digits_only[1]
+        return digits   # returns a string of chars
 
     def _parse_response(_MotorResponseCommandLine):
         return
