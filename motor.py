@@ -146,12 +146,12 @@ class Motor:
     def _motor_SC(self) -> int:
         _response = self.set_command("SC") # GET STATUS CODE
         _result = self._process_response(_response) 
-        return int(_result)  # RETURNS INT VALUE
+        return int(float(_result))  # RETURNS INT VALUE
     
     def _motor_AL(self) -> int:
         _response = self.set_command("AL") # GET ALARM CODE
         _result = self._process_response(_response)
-        return int(_result)  # RETURNS INT VALUE
+        return int(float(_result))  # RETURNS INT VALUE
 
     def _motor_IS(self) -> int:
         _response = self.set_command("IS") # GET INPUT STATUS
@@ -551,7 +551,7 @@ class Motor:
         # SET THE ZERO POSITION HERE
 
         # EP ENCODER POSITION COMMAND // EP0 TO RESET INTERNAL POSITION COUNTER TO 0
-        _response = self._motor_EP(self,0)
+        _response = self._motor_EP(0)
         if (_response != "0%"):
             print(f"EP0 FAIL TO ACK. {_response}")
 
@@ -688,6 +688,10 @@ if __name__ == "__main__":
     print ("Main program ")
     m = Motor()
 #    m.initialize()
+
+    s = '0x020C'
+    h = float(s)
+    i = int(h)
 
     while True:
         m.test_input_command()
